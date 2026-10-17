@@ -2,7 +2,9 @@ package dev.tapbench.autoclicker;
 
 import android.app.Activity;
 import android.app.Instrumentation;
+import android.app.UiAutomation;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.SystemClock;
 import java.io.File;
@@ -19,6 +21,7 @@ public final class BenchInstrumentation extends Instrumentation {
             MainActivity activity = (MainActivity) startActivitySync(new Intent(getTargetContext(), MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             waitForIdleSync();
+            new File(getTargetContext().getFilesDir(), "instrumentation-ready").createNewFile();
             awaitService();
             // Exercise stop while a real run is active.
             runOnMainSync(() -> activity.startBenchmark(10, 10));
@@ -45,6 +48,13 @@ public final class BenchInstrumentation extends Instrumentation {
             if (error.get() != null) throw error.get();
             File file = new File(getTargetContext().getFilesDir(), "benchmark.json");
             try (FileOutputStream out = new FileOutputStream(file)) { out.write(report.get().getBytes(StandardCharsets.UTF_8)); }
+            Bitmap screenshot = getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES).takeScreenshot();
+            if (screenshot != null) {
+                try (FileOutputStream out = new FileOutputStream(new File(getTargetContext().getFilesDir(), "benchmark-screen.png"))) {
+                    screenshot.compress(Bitmap.CompressFormat.PNG, 100, out);
+                }
+                screenshot.recycle();
+            }
             result.putString("stream", "\nTAPBENCH_DEVICE_TEST_PASSED\n" + report.get() + "\n");
             finish(Activity.RESULT_OK, result);
         } catch (Throwable error) {
@@ -53,7 +63,7 @@ public final class BenchInstrumentation extends Instrumentation {
         }
     }
     private void awaitService() throws Exception {
-        long deadline = SystemClock.uptimeMillis() + 10_000;
+        long deadline = SystemClock.uptimeMillis() + 30_000;
         while (SystemClock.uptimeMillis() < deadline) {
             AtomicReference<Boolean> ready = new AtomicReference<>(false);
             runOnMainSync(() -> ready.set(TapService.get() != null));
