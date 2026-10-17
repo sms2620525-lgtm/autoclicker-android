@@ -10,14 +10,14 @@ public final class TapEngine {
     private final Clock clock;
     private final Queue queue;
     private final Injector injector;
-    private final Runnable tick = this::dispatchNext;
-    private final Runnable deadline = () -> stop("시간 종료");
-    private final Runnable watchdog = () -> { timedOut++; stop("입력 응답 시간 초과"); };
     private long generation, start, end, deadlineNanos, interval, nextDue;
     private long attempts, accepted, completed, cancelled, rejected, skipped, timedOut;
     private int target;
     private boolean running, inFlight;
     private String reason = "대기";
+    private final Runnable tick = this::dispatchNext;
+    private final Runnable deadline = () -> stop("시간 종료");
+    private final Runnable watchdog = () -> { timedOut++; stop("입력 응답 시간 초과"); };
 
     public TapEngine(Clock clock, Queue queue, Injector injector) {
         this.clock = clock; this.queue = queue; this.injector = injector;
