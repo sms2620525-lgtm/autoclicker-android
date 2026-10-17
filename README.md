@@ -10,7 +10,7 @@
 
 ## APK 받기
 
-GitHub 저장소 → **Actions → Android APK and real touch test → 성공한 실행 → Artifacts → TapBench-APK**를 받으세요. ZIP을 풀고 `TapBench-1.0.0-debug.apk`를 Android 기기에 설치합니다. `SHA256SUMS.txt`로 파일 해시를 확인할 수 있습니다. Artifacts는 30일 보관하며 Actions의 **Run workflow**로 다시 빌드할 수 있습니다.
+GitHub 저장소 → **Releases → 최신 TapBench 테스트 APK → Assets → TapBench-1.0.0-debug.apk**를 받으세요. 비공개 저장소이므로 GitHub 로그인이 필요합니다. `SHA256SUMS.txt`로 파일 해시를 확인할 수 있습니다. Actions의 **Android APK and real touch test → Run workflow**로 다시 빌드할 수 있습니다. Actions artifact 저장공간을 사용하지 않고 같은 저장소의 비공개 릴리스에 파일을 첨부합니다.
 
 이 APK는 테스트용 debug 서명입니다. CI 실행마다 서명키가 달라질 수 있으므로 재설치할 때 서명 충돌이 나면 기존 테스트 앱을 제거한 후 설치하세요(앱 설정도 초기화됩니다). 스토어 배포용 개인 서명키는 포함하지 않습니다.
 
@@ -44,6 +44,6 @@ GitHub 저장소 → **Actions → Android APK and real touch test → 성공한
 - Android Studio에서는 Gradle 8.11.1 로컬 설치를 선택하거나 `gradle wrapper --gradle-version 8.11.1`로 공식 wrapper를 생성할 수 있습니다.
 - Actions는 위 버전을 설치하고 9개 JVM 테스트, Android Lint, debug APK 빌드 후 API 35 에뮬레이터에서 실제 입력 경로를 검사합니다.
 - 에뮬레이터 테스트는 정지 후 요청이 증가하지 않는지 검사하고 목표 5,000 CPS로 5초 측정하여 실제 터치가 도착하는지 검증합니다. **5,000 CPS 달성을 통과 조건으로 속이지 않습니다.** 에뮬레이터 CPS는 휴대폰 성능을 대표하지 않습니다.
-- `TapBench-test-results` artifact에 테스트 보고서, `benchmark.json`, 에뮬레이터 화면을 저장합니다.
+- 릴리스의 `TapBench-test-results.zip`에 테스트 보고서, `benchmark.json`, 에뮬레이터 화면을 저장합니다. 에뮬레이터 테스트가 실패해도 디버깅용 APK와 가능한 보고서를 보존합니다. Actions 성공 상태를 함께 확인하세요.
 
 접근성 서비스는 화면 내용을 읽지 않습니다(`canRetrieveWindowContent=false`). 인터넷, 저장소 전체 접근, 루트 권한을 요청하지 않습니다. JSON 저장은 Android 파일 선택기를 사용합니다.
