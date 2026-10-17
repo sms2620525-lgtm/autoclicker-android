@@ -11,7 +11,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 # Instrumentation restarts the app; bind accessibility after that restart.
 # Only this disposable CI emulator is configured automatically. Real devices opt in in Settings.
-adb shell settings put secure enabled_accessibility_services ''
+adb shell settings delete secure enabled_accessibility_services
 adb shell run-as dev.tapbench.autoclicker rm -f files/instrumentation-ready files/benchmark.json files/benchmark-screen.png
 adb shell am instrument -w dev.tapbench.autoclicker.test/dev.tapbench.autoclicker.BenchInstrumentation > device-results/instrumentation.txt &
 instrumentation_pid=$!
