@@ -1,0 +1,36 @@
+name: macOS DMG
+
+on:
+  push:
+    branches: [main]
+    paths: ['macos/**', '.github/workflows/macos.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-dmg:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Build universal app, test schedule and verify DMG
+        run: bash macos/scripts/build.sh
+      - name: Publish macOS DMG and verification results
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: macos-${{ github.run_number }}-${{ github.run_attempt }}
+        run: |
+          gh release create "$RELEASE_TAG" macos/dist/* \
+            --target "$GITHUB_SHA" \
+            --title "TapBench macOS DMG #${GITHUB_RUN_NUMBER}" \
+            --notes-file macos/README.md \
+            --prerelease
