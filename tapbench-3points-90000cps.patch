@@ -1,0 +1,481 @@
+diff --git a/README.md b/README.md
+index 6e8aefe..7ec5dc3 100644
+--- a/README.md
++++ b/README.md
+@@ -1,10 +1,14 @@
+ # TapBench 오토클릭커
+ 
+-네이티브 Android APK. 선택한 **동일 좌표**를 반복 터치하고 실제 성능을 측정합니다. HTML, WebView, 웹 호스팅을 사용하지 않습니다. Android 7.0(API 24) 이상에서 동작하며 루트 권한이 필요하지 않습니다.
++네이티브 Android APK. 선택한 **3개 좌표**를 동시에 반복 터치하고 실제 성능을 측정합니다. HTML, WebView, 웹 호스팅을 사용하지 않습니다. Android 7.0(API 24) 이상에서 동작하며 루트 권한이 필요하지 않습니다.
+ 
+-## 5,000회/초의 의미
++## 지점 3곳
+ 
+-목표 속도를 1~5,000 CPS로 설정할 수 있습니다. **5,000은 목표값이며 실제 5,000번/초 터치를 보장하지 않습니다.** 이 속도의 간격은 0.2ms입니다. Android 접근성 터치는 양의 정수 밀리초 지속 시간과 시스템 처리 지연을 가지며, 이전 제스처가 진행 중일 때 새 제스처를 보내면 기존 터치가 취소됩니다. 따라서 한 번에 하나의 터치를 보내고 완료 콜백 이후 다음 터치를 예약합니다. 실제 속도는 기기와 대상 앱에 따라 낮아집니다. CPU 루프의 실행 횟수를 터치 성능으로 표시하지 않습니다.
++**위치** 선택 화면에서 지점을 3번 눌러 좌표 3개를 지정합니다. 한 번의 제스처가 스트로크 3개를 담아 세 지점을 **동시에** 누르므로, 완료 제스처 1회는 실제 탭 3회입니다. `dispatchGesture`의 스트로크 상한은 10개이므로 3개는 허용 범위입니다. 번갈아 누르는 방식이 아닙니다.
++
++## 90,000회/초의 의미
++
++목표 속도를 1~90,000 CPS(제스처/초)로 설정할 수 있습니다. **90,000은 목표값이며 실제 90,000번/초 터치를 보장하지 않습니다.** 이 속도의 간격은 약 0.011ms이며, Android 접근성 입력 경로가 이 속도를 처리하지 못합니다. 실제 완료 속도는 기기의 제스처 왕복 응답 시간이 정하며 보통 목표보다 수백 배 낮습니다. 도달하지 못한 목표 슬롯은 `건너뛴 목표 슬롯`에 그대로 표시하고 몰아서 보내지 않습니다. Android 접근성 터치는 양의 정수 밀리초 지속 시간과 시스템 처리 지연을 가지며, 이전 제스처가 진행 중일 때 새 제스처를 보내면 기존 터치가 취소됩니다. 따라서 한 번에 제스처 하나(스트로크 3개 = 지점 3곳)만 보내고 완료 콜백 이후 다음 제스처를 예약합니다. 실제 속도는 기기와 대상 앱에 따라 낮아집니다. CPU 루프의 실행 횟수를 터치 성능으로 표시하지 않습니다.
+ 
+ 공식 근거: [AccessibilityService.dispatchGesture](https://developer.android.com/reference/android/accessibilityservice/AccessibilityService#dispatchGesture(android.accessibilityservice.GestureDescription,%20android.accessibilityservice.AccessibilityService.GestureResultCallback,%20android.os.Handler)), [StrokeDescription](https://developer.android.com/reference/android/accessibilityservice/GestureDescription.StrokeDescription).
+ 
+@@ -18,19 +22,20 @@ GitHub 저장소 → **Releases → 최신 TapBench 테스트 APK → Assets →
+ 
+ 1. 앱의 **접근성 설정 열기**에서 TapBench 서비스를 켭니다. Android 13 이상에서 설치 출처에 따라 제한된 설정 안내가 나오면 기기의 앱 정보 메뉴에서 접근성 허용 관련 설정을 확인하세요.
+ 2. 목표 속도와 실행 시간을 입력하고 **설정 저장 · 떠 있는 제어창 열기**를 누릅니다.
+-3. 대상 앱으로 이동합니다. 떠 있는 창의 **위치**를 누르고 반복 클릭할 화면 지점을 한 번 선택합니다. 선택 터치는 대상 앱으로 전달되지 않습니다.
+-4. 제어창이 목표 지점을 가리면 제어창 상단을 드래그해서 옮깁니다. **시작**을 누르면 2초 후 클릭을 시작합니다.
++3. 대상 앱으로 이동합니다. 떠 있는 창의 **위치**를 누르고 반복 클릭할 화면 지점을 **3번** 선택합니다. 3번째 선택에서 선택 화면이 닫히고, 20초가 지나면 그때까지 고른 지점으로 종료합니다. 선택 터치는 대상 앱으로 전달되지 않습니다.
++4. 제어창이 목표 지점 중 하나라도 가리면 제어창 상단을 드래그해서 옮깁니다. **시작**을 누르면 2초 후 클릭을 시작합니다.
+ 5. **정지** 또는 **닫기**로 중지합니다. 화면 꺼짐·화면 구성 변경·입력 취소·응답 시간 초과에도 중지합니다. 화면 회전 후에는 위치를 다시 선택합니다. 이미 전달된 한 번의 터치는 정지 직후 완료될 수 있습니다.
+ 
+ ## 기기 성능 테스트
+ 
+-**설정한 속도로 10초 테스트**를 누르면 2초 준비 후 앱의 측정 패드에 실제 터치를 보냅니다. 테스트 중 패드를 직접 만지지 마세요. 다른 화면으로 나가면 테스트를 중지합니다.
++**설정한 속도로 10초 테스트**를 누르면 2초 준비 후 앱의 측정 패드 안 3개 지점에 실제 터치를 보냅니다. 테스트 중 패드를 직접 만지지 마세요. 다른 화면으로 나가면 테스트를 중지합니다.
+ 
+ | 지표 | 뜻 |
+ |---|---|
+-| 목표 CPS | 사용자가 설정한 목표 |
++| 목표 CPS | 사용자가 설정한 목표(제스처/초). 지점 3곳이면 목표 탭은 그 3배 |
+ | 완료 CPS | Android가 완료 콜백을 반환한 제스처 수 / 실제 경과 시간 |
+-| 수신 CPS | 테스트 패드가 받은 ACTION_UP 수 / 같은 측정 시간 |
++| 실제 탭 | 완료 제스처 수 × 지점 수 |
++| 수신 CPS | 테스트 패드가 받은 손가락별 터치 종료(ACTION_UP·ACTION_POINTER_UP) 수 / 같은 측정 시간 |
+ | 취소·거절·시간초과 | Android의 취소/거절, 2초 동안 응답이 없는 요청 |
+ | 건너뛴 목표 슬롯 | 입력 처리를 기다리느라 놓친 예약 시점; 추가 클릭으로 보충하지 않음 |
+ | 미확인 | 정지 시 이미 전달되었지만 결과를 아직 확인하지 못한 제스처 |
+@@ -43,7 +48,7 @@ GitHub 저장소 → **Releases → 최신 TapBench 테스트 APK → Assets →
+ - Gradle이 설치된 환경: `gradle testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest`.
+ - Android Studio에서는 Gradle 8.11.1 로컬 설치를 선택하거나 `gradle wrapper --gradle-version 8.11.1`로 공식 wrapper를 생성할 수 있습니다.
+ - Actions는 위 버전을 설치하고 9개 JVM 테스트, Android Lint, debug APK 빌드 후 API 35 에뮬레이터에서 실제 입력 경로를 검사합니다.
+-- 에뮬레이터 테스트는 정지 후 요청이 증가하지 않는지 검사하고 목표 5,000 CPS로 5초 측정하여 실제 터치가 도착하는지 검증합니다. **5,000 CPS 달성을 통과 조건으로 속이지 않습니다.** 에뮬레이터 CPS는 휴대폰 성능을 대표하지 않습니다.
++- 에뮬레이터 테스트는 정지 후 요청이 증가하지 않는지 검사하고 목표 90,000 CPS로 5초 측정하여 실제 터치가 도착하는지 검증합니다. **90,000 CPS 달성을 통과 조건으로 속이지 않습니다.** 에뮬레이터 CPS는 휴대폰 성능을 대표하지 않습니다.
+ - 릴리스의 `TapBench-test-results.zip`에 테스트 보고서, `benchmark.json`, 에뮬레이터 화면을 저장합니다. 에뮬레이터 테스트가 실패해도 디버깅용 APK와 가능한 보고서를 보존합니다. Actions 성공 상태를 함께 확인하세요.
+ 
+ 접근성 서비스는 화면 내용을 읽지 않습니다(`canRetrieveWindowContent=false`). 인터넷, 저장소 전체 접근, 루트 권한을 요청하지 않습니다. JSON 저장은 Android 파일 선택기를 사용합니다.
+diff --git a/app/src/androidTest/java/dev/tapbench/autoclicker/BenchInstrumentation.java b/app/src/androidTest/java/dev/tapbench/autoclicker/BenchInstrumentation.java
+index f2f2a98..efa9e6d 100644
+--- a/app/src/androidTest/java/dev/tapbench/autoclicker/BenchInstrumentation.java
++++ b/app/src/androidTest/java/dev/tapbench/autoclicker/BenchInstrumentation.java
+@@ -29,8 +29,8 @@ public final class BenchInstrumentation extends Instrumentation {
+             runOnMainSync(() -> TapService.get().stop("instrumentation stop"));
+             long count = state().attempts; SystemClock.sleep(300);
+             check(state().attempts == count, "Dispatch continued after stop");
+-            // Measure the requested 5000 CPS setting for five seconds, without asserting fake throughput.
+-            runOnMainSync(() -> activity.startBenchmark(5000, 5));
++            // Measure the requested 90000 CPS setting for five seconds, without asserting fake throughput.
++            runOnMainSync(() -> activity.startBenchmark(90000, 5));
+             awaitRunning();
+             long deadline = SystemClock.uptimeMillis() + 10_000;
+             while (state().running && SystemClock.uptimeMillis() < deadline) SystemClock.sleep(50);
+@@ -42,6 +42,7 @@ public final class BenchInstrumentation extends Instrumentation {
+             runOnMainSync(() -> {
+                 try {
+                     check(activity.receivedTouches() > 0, "No actual touches reached the test pad");
++                    check(TapService.get().pointCount() == TapService.MAX_POINTS, "Benchmark did not arm three points");
+                     report.set(activity.reportJson());
+                 } catch (Exception e) { error.set(e); }
+             });
+diff --git a/app/src/main/java/dev/tapbench/autoclicker/MainActivity.java b/app/src/main/java/dev/tapbench/autoclicker/MainActivity.java
+index 53392a9..23e0533 100644
+--- a/app/src/main/java/dev/tapbench/autoclicker/MainActivity.java
++++ b/app/src/main/java/dev/tapbench/autoclicker/MainActivity.java
+@@ -64,7 +64,7 @@ public final class MainActivity extends Activity {
+         setContentView(scroll);
+         label(content, "TAPBENCH  /  ANDROID", 12, MINT, true);
+         label(content, "같은 곳을, 반복해서.", 29, Color.WHITE, true);
+-        label(content, "목표는 5,000회/초. 실제 속도는 기기에서 측정합니다.", 14, MUTED, false);
++        label(content, "지점 3곳 · 목표는 90,000회/초. 실제 속도는 기기에서 측정합니다.", 14, MUTED, false);
+ 
+         LinearLayout permissions = card();
+         connection = label(permissions, "접근성 연결 확인 중", 16, Color.WHITE, true);
+@@ -77,20 +77,22 @@ public final class MainActivity extends Activity {
+ 
+         LinearLayout setup = card();
+         label(setup, "01  클릭 설정", 17, Color.WHITE, true);
+-        cpsInput = number(setup, "목표 속도 (회/초 · 1~5,000)", "cps", 5000);
++        cpsInput = number(setup, "목표 속도 (제스처/초 · 1~90,000)", "cps", TapEngine.MAX_CPS);
+         secondsInput = number(setup, "실행 시간 (초 · 1~3,600)", "seconds", 10);
+-        label(setup, "Android는 터치 처리 시간을 제한합니다. 5,000 설정은 목표값이며 실제 5,000번의 터치를 보장하지 않습니다. 완료 응답을 기다려 겹치는 입력과 무한 대기를 막습니다.", 13, MUTED, false);
++        label(setup, "지점 3곳을 선택하면 한 번의 제스처가 세 곳을 동시에 누릅니다. 따라서 실제 탭 수는 완료 제스처 수의 3배입니다.", 13, MUTED, false);
++        label(setup, "Android는 터치 처리 시간을 제한합니다. 90,000 설정은 목표값일 뿐이며 실제 90,000번의 터치를 보장하지 않습니다. 완료 응답을 기다려 겹치는 입력과 무한 대기를 막으므로, 실제 속도는 기기의 입력 처리 속도에서 멈춥니다.", 13, MUTED, false);
+         button(setup, "설정 저장 · 떠 있는 제어창 열기", () -> {
+             if (!saveConfig()) return;
+             TapService s = requireService(); if (s == null) return;
+             s.stop("제어창 열기"); s.showControls();
+             toast("대상 앱으로 이동 → 위치 → 클릭 지점 선택 → 시작");
+         });
+-        label(setup, "제어창에서 위치를 누르고 지점을 선택하세요. 시작 후 2초 뒤 반복 터치합니다. 제어창 상단을 드래그해 옮길 수 있습니다.", 13, MUTED, false);
++        label(setup, "제어창에서 위치를 누르고 지점 3곳을 차례로 선택하세요. 시작 후 2초 뒤 반복 터치합니다. 제어창 상단을 드래그해 옮길 수 있습니다.", 13, MUTED, false);
+ 
+         LinearLayout bench = card();
+         label(bench, "02  실제 터치 성능 테스트", 17, Color.WHITE, true);
+-        label(bench, "아래 패드에 실제로 도착한 터치 종료(ACTION_UP)를 셉니다. 테스트 중 화면을 직접 만지면 수신 수에 포함됩니다.", 13, MUTED, false);
++        label(bench, "아래 패드에 실제로 도착한 손가락별 터치 종료(ACTION_UP · ACTION_POINTER_UP)를 셉니다. 테스트 중 화면을 직접 만지면 수신 수에 포함됩니다.", 13, MUTED, false);
++        label(bench, "테스트는 패드 안의 3개 지점을 동시에 누릅니다. 완료 제스처 1회 = 탭 3회입니다.", 13, MUTED, false);
+         button(bench, "설정한 속도로 10초 테스트", () -> {
+             if (!saveConfig()) return;
+             startBenchmark(Integer.parseInt(cpsInput.getText().toString()), 10);
+@@ -110,15 +112,17 @@ public final class MainActivity extends Activity {
+         pad.setContentDescription("실제 터치 측정 패드");
+         bench.addView(pad, new LinearLayout.LayoutParams(-1, dp(180)));
+         pad.setOnTouchListener((v, event) -> {
+-            if (event.getActionMasked() == MotionEvent.ACTION_UP) {
++            int action = event.getActionMasked();
++            // Three simultaneous strokes arrive as three fingers: one ACTION_UP plus ACTION_POINTER_UP for the rest.
++            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_POINTER_UP) {
+                 TapService s = TapService.get();
+                 if (s != null && s.isBenchmark() && s.snapshot().running) received++;
+-                v.performClick();
++                if (action == MotionEvent.ACTION_UP) v.performClick();
+             }
+             return true;
+         });
+         button(bench, "결과 JSON 저장", this::export);
+-        label(content, "완료 CPS = Android 완료 응답/초\n수신 CPS = 측정 패드에 도착한 터치/초\n다른 앱의 내부 클릭 처리 여부는 확인할 수 없습니다.", 12, MUTED, false);
++        label(content, "완료 CPS = Android 완료 응답/초 (지점 3곳이면 탭은 그 3배)\n수신 CPS = 측정 패드에 도착한 터치/초\n다른 앱의 내부 클릭 처리 여부는 확인할 수 없습니다.", 12, MUTED, false);
+     }
+ 
+     public void startBenchmark(int cps, int seconds) {
+@@ -130,7 +134,11 @@ public final class MainActivity extends Activity {
+         handler.postDelayed(() -> {
+             if (!resumed || token != benchmarkToken) return;
+             int[] location = new int[2]; pad.getLocationOnScreen(location);
+-            s.arm(location[0] + pad.getWidth() / 2f, location[1] + pad.getHeight() / 2f, cps, seconds, true);
++            // Three points spread across the pad, so every stroke lands inside the measured area.
++            float centerX = location[0] + pad.getWidth() / 2f, centerY = location[1] + pad.getHeight() / 2f;
++            float gap = pad.getWidth() / 4f;
++            s.arm(new float[]{centerX - gap, centerX, centerX + gap},
++                new float[]{centerY, centerY, centerY}, TapService.MAX_POINTS, cps, seconds, true);
+             renderStats();
+         }, 150);
+     }
+@@ -141,18 +149,22 @@ public final class MainActivity extends Activity {
+         TapService service = TapService.get();
+         if (service == null) throw new IllegalStateException("서비스가 연결되지 않았습니다");
+         TapEngine.Snapshot s = service.snapshot();
++        int points = service.pointCount();
+         JSONObject data = new JSONObject();
+-        data.put("schema_version", 1).put("device", Build.MANUFACTURER + " " + Build.MODEL)
++        data.put("schema_version", 2).put("device", Build.MANUFACTURER + " " + Build.MODEL)
+             .put("android_api", Build.VERSION.SDK_INT).put("target_cps", s.target)
++            .put("points_per_gesture", points).put("target_taps_per_second", (long) s.target * points)
+             .put("elapsed_seconds", s.seconds()).put("dispatch_attempts", s.attempts)
+             .put("accepted", s.accepted).put("completed_gestures", s.completed)
++            .put("completed_taps", s.completed * points)
++            .put("completed_taps_per_second", s.completedCps() * points)
+             .put("cancelled", s.cancelled).put("rejected", s.rejected).put("timed_out", s.timedOut)
+             .put("pending_at_stop", s.pending()).put("skipped_target_slots", s.skipped)
+             .put("completed_cps", s.completedCps()).put("stop_reason", s.reason)
+             .put("running", s.running).put("measurement", service.isBenchmark() ? "real_touch_pad" : "gesture_callbacks_only")
+             .put("received_touches", service.isBenchmark() ? received : JSONObject.NULL)
+             .put("received_cps", service.isBenchmark() && s.seconds() > 0 ? received / s.seconds() : JSONObject.NULL)
+-            .put("note", "Target CPS is a request, not a guarantee. Completion is not proof that another app handled a click. Manual touches on the pad also count.");
++            .put("note", "Target CPS counts gestures; each gesture presses points_per_gesture points at once. Target CPS is a request, not a guarantee. Completion is not proof that another app handled a click. Manual touches on the pad also count.");
+         return data.toString(2);
+     }
+ 
+@@ -162,9 +174,11 @@ public final class MainActivity extends Activity {
+         connection.setTextColor(service == null ? Color.rgb(255, 193, 112) : MINT);
+         if (service == null) return;
+         TapEngine.Snapshot s = service.snapshot();
++        int points = service.pointCount();
+         stats.setText(String.format(Locale.KOREA,
+-            "%s\n목표 %,d 회/초 · %.1f초\n완료 %,d회 · %.1f CPS\n수신 %s\n취소 %,d · 거절 %,d · 시간초과 %,d\n건너뛴 목표 슬롯 %,d · 미확인 %,d",
+-            service.isArmed() ? "2초 뒤 시작합니다" : s.reason, s.target, s.seconds(), s.completed, s.completedCps(),
++            "%s\n목표 %,d 제스처/초 · 지점 %d곳 · %.1f초\n완료 제스처 %,d회 · %.1f/초\n실제 탭 %,d회 · %.1f/초\n수신 %s\n취소 %,d · 거절 %,d · 시간초과 %,d\n건너뛴 목표 슬롯 %,d · 미확인 %,d",
++            service.isArmed() ? "2초 뒤 시작합니다" : s.reason, s.target, points, s.seconds(),
++            s.completed, s.completedCps(), s.completed * points, s.completedCps() * points,
+             service.isBenchmark() ? String.format(Locale.KOREA, "%,d회 · %.1f CPS", received, s.seconds() > 0 ? received / s.seconds() : 0) : "테스트 화면에서만 측정",
+             s.cancelled, s.rejected, s.timedOut, s.skipped, s.pending()));
+         pad.setText(String.format(Locale.KOREA, "◎\n터치 측정 패드\n%,d회 수신", received));
+@@ -175,10 +189,10 @@ public final class MainActivity extends Activity {
+         try {
+             int cps = Integer.parseInt(cpsInput.getText().toString().trim());
+             int seconds = Integer.parseInt(secondsInput.getText().toString().trim());
+-            if (cps < 1 || cps > 5000 || seconds < 1 || seconds > 3600) throw new NumberFormatException();
++            if (cps < 1 || cps > TapEngine.MAX_CPS || seconds < 1 || seconds > 3600) throw new NumberFormatException();
+             getSharedPreferences("config", MODE_PRIVATE).edit().putInt("cps", cps).putInt("seconds", seconds).apply();
+             return true;
+-        } catch (NumberFormatException error) { toast("속도는 1~5000, 시간은 1~3600의 정수로 입력하세요"); return false; }
++        } catch (NumberFormatException error) { toast("속도는 1~" + TapEngine.MAX_CPS + ", 시간은 1~3600의 정수로 입력하세요"); return false; }
+     }
+     private TapService requireService() {
+         TapService s = TapService.get(); if (s == null) toast("접근성 설정에서 TapBench를 먼저 켜세요"); return s;
+diff --git a/app/src/main/java/dev/tapbench/autoclicker/TapEngine.java b/app/src/main/java/dev/tapbench/autoclicker/TapEngine.java
+index ffaa635..95ab19d 100644
+--- a/app/src/main/java/dev/tapbench/autoclicker/TapEngine.java
++++ b/app/src/main/java/dev/tapbench/autoclicker/TapEngine.java
+@@ -2,6 +2,8 @@ package dev.tapbench.autoclicker;
+ 
+ /** Single-thread-confined, bounded single-flight scheduler. No busy spin or queued backlog. */
+ public final class TapEngine {
++    /** Upper bound of the target rate setting. A request, never a guaranteed throughput. */
++    public static final int MAX_CPS = 90_000;
+     public interface Clock { long now(); }
+     public interface Queue { void post(Runnable task, long delayMillis); void remove(Runnable task); }
+     public interface Result { void complete(boolean success); }
+@@ -24,8 +26,8 @@ public final class TapEngine {
+     }
+ 
+     public void start(int cps, int seconds) {
+-        if (cps < 1 || cps > 5000 || seconds < 1 || seconds > 3600)
+-            throw new IllegalArgumentException("속도 1~5000, 시간 1~3600초");
++        if (cps < 1 || cps > MAX_CPS || seconds < 1 || seconds > 3600)
++            throw new IllegalArgumentException("속도 1~" + MAX_CPS + ", 시간 1~3600초");
+         if (running) throw new IllegalStateException("이미 실행 중입니다");
+         generation++;
+         target = cps;
+diff --git a/app/src/main/java/dev/tapbench/autoclicker/TapService.java b/app/src/main/java/dev/tapbench/autoclicker/TapService.java
+index ba186b5..891a638 100644
+--- a/app/src/main/java/dev/tapbench/autoclicker/TapService.java
++++ b/app/src/main/java/dev/tapbench/autoclicker/TapService.java
+@@ -38,18 +38,21 @@ public final class TapService extends AccessibilityService {
+     private TextView status;
+     private Button toggle;
+     private WindowManager.LayoutParams panelParams;
++    /** Number of tap points pressed together by one gesture. GestureDescription allows up to 10 strokes. */
++    public static final int MAX_POINTS = 3;
+     private TapEngine engine;
+     private GestureDescription gesture;
+-    private float x, y;
+-    private boolean selected, armed, benchmark;
++    private final float[] pointsX = new float[MAX_POINTS], pointsY = new float[MAX_POINTS];
++    private int pointCount;
++    private boolean armed, benchmark;
+     private int armToken;
+     private final Runnable refresh = new Runnable() {
+         @Override public void run() {
+             if (panel == null) return;
+             TapEngine.Snapshot s = engine.snapshot();
+             status.setText(armed ? "2초 뒤 시작 · 정지로 취소" : String.format(Locale.KOREA,
+-                "%s  |  %.1f 회/초\n좌표 %s", s.reason, s.completedCps(),
+-                selected ? Math.round(x) + ", " + Math.round(y) : "미선택"));
++                "%s  |  제스처 %.1f/초 · 탭 %.1f/초\n지점 %d/%d  %s", s.reason, s.completedCps(),
++                s.completedCps() * pointCount, pointCount, MAX_POINTS, pointsText()));
+             toggle.setText(armed || s.running ? "■ 정지" : "▶ 시작");
+             handler.postDelayed(this, 250);
+         }
+@@ -75,6 +78,7 @@ public final class TapService extends AccessibilityService {
+     }
+ 
+     public TapEngine.Snapshot snapshot() { return engine.snapshot(); }
++    public int pointCount() { return pointCount; }
+     public boolean isArmed() { return armed; }
+     public boolean isBenchmark() { return benchmark; }
+ 
+@@ -105,11 +109,11 @@ public final class TapService extends AccessibilityService {
+         position.setOnClickListener(v -> { stop("위치 선택"); choosePosition(); });
+         toggle.setOnClickListener(v -> {
+             if (armed || engine.snapshot().running) { stop("사용자가 정지"); return; }
+-            if (!selected) { toast("먼저 위치를 선택하세요"); return; }
++            if (pointCount < 1) { toast("먼저 위치를 선택하세요"); return; }
+             if (panelCoversTarget()) { toast("제어창을 클릭 위치 밖으로 옮기세요"); return; }
+-            int cps = getSharedPreferences("config", MODE_PRIVATE).getInt("cps", 5000);
++            int cps = getSharedPreferences("config", MODE_PRIVATE).getInt("cps", TapEngine.MAX_CPS);
+             int seconds = getSharedPreferences("config", MODE_PRIVATE).getInt("seconds", 10);
+-            arm(x, y, cps, seconds, false);
++            arm(pointsX, pointsY, pointCount, cps, seconds, false);
+         });
+         close.setOnClickListener(v -> { stop("제어창 닫힘"); hideControls(); });
+         handle.setOnTouchListener(new View.OnTouchListener() {
+@@ -140,14 +144,21 @@ public final class TapService extends AccessibilityService {
+ 
+     private void choosePosition() {
+         removePicker();
++        pointCount = 0;
+         TextView select = new TextView(this);
+-        select.setText("반복 클릭할 지점을 한 번 누르세요\n20초 후 자동 취소");
++        select.setText(pickerPrompt());
+         select.setGravity(Gravity.CENTER); select.setTextSize(20); select.setTextColor(Color.WHITE);
+         select.setBackgroundColor(0x55344660); picker = select;
+         select.setOnTouchListener((v, event) -> {
+             if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+-                x = event.getRawX(); y = event.getRawY(); selected = true;
+-                v.performClick(); removePicker(); toast("클릭 좌표: " + Math.round(x) + ", " + Math.round(y));
++                if (pointCount < MAX_POINTS) {
++                    pointsX[pointCount] = event.getRawX(); pointsY[pointCount] = event.getRawY();
++                    pointCount++;
++                }
++                v.performClick();
++                toast(pointCount + "번째 좌표: " + Math.round(pointsX[pointCount - 1]) + ", " + Math.round(pointsY[pointCount - 1]));
++                // The overlay closes once every point is set; an early timeout keeps what was picked.
++                if (pointCount >= MAX_POINTS) removePicker(); else select.setText(pickerPrompt());
+             }
+             return true;
+         });
+@@ -155,18 +166,44 @@ public final class TapService extends AccessibilityService {
+         handler.postDelayed(() -> { if (picker == select) removePicker(); }, 20_000);
+     }
+ 
++    private String pickerPrompt() {
++        return "반복 클릭할 지점 " + (pointCount + 1) + "/" + MAX_POINTS + " 을 누르세요\n"
++            + "선택한 지점 " + pointCount + "개 · 20초 후 자동 종료";
++    }
++
++    private String pointsText() {
++        if (pointCount < 1) return "미선택";
++        StringBuilder text = new StringBuilder();
++        for (int i = 0; i < pointCount; i++)
++            text.append(i > 0 ? " / " : "").append(Math.round(pointsX[i])).append(",").append(Math.round(pointsY[i]));
++        return text.toString();
++    }
++
+     public void arm(float px, float py, int cps, int seconds, boolean test) {
++        arm(new float[]{px}, new float[]{py}, 1, cps, seconds, test);
++    }
++
++    public void arm(float[] px, float[] py, int count, int cps, int seconds, boolean test) {
+         stop("새 실행 준비"); removePicker();
+         DisplayMetrics bounds = bounds();
+-        if (!Float.isFinite(px) || !Float.isFinite(py) || px < 0 || py < 0 || px >= bounds.widthPixels || py >= bounds.heightPixels)
+-            throw new IllegalArgumentException("화면 안의 좌표를 선택하세요");
+-        if (cps < 1 || cps > 5000 || seconds < 1 || seconds > 3600)
+-            throw new IllegalArgumentException("속도 1~5000, 시간 1~3600초");
+-        x = px; y = py; selected = true; benchmark = test;
++        if (count < 1 || count > MAX_POINTS || px.length < count || py.length < count)
++            throw new IllegalArgumentException("클릭 지점은 1~" + MAX_POINTS + "개입니다");
++        if (cps < 1 || cps > TapEngine.MAX_CPS || seconds < 1 || seconds > 3600)
++            throw new IllegalArgumentException("속도 1~" + TapEngine.MAX_CPS + ", 시간 1~3600초");
++        for (int i = 0; i < count; i++)
++            if (!Float.isFinite(px[i]) || !Float.isFinite(py[i]) || px[i] < 0 || py[i] < 0
++                || px[i] >= bounds.widthPixels || py[i] >= bounds.heightPixels)
++                throw new IllegalArgumentException("화면 안의 좌표를 선택하세요");
++        for (int i = 0; i < count; i++) { pointsX[i] = px[i]; pointsY[i] = py[i]; }
++        pointCount = count; benchmark = test;
+         if (test) hideControls();
+-        Path path = new Path(); path.moveTo(x, y);
+-        gesture = new GestureDescription.Builder()
+-            .addStroke(new GestureDescription.StrokeDescription(path, 0, 1)).build();
++        // One gesture, one stroke per point: the points are pressed at the same moment, not in turns.
++        GestureDescription.Builder builder = new GestureDescription.Builder();
++        for (int i = 0; i < count; i++) {
++            Path path = new Path(); path.moveTo(pointsX[i], pointsY[i]);
++            builder.addStroke(new GestureDescription.StrokeDescription(path, 0, 1));
++        }
++        gesture = builder.build();
+         armed = true; int token = ++armToken;
+         handler.postDelayed(() -> {
+             if (!armed || token != armToken) return;
+@@ -185,7 +222,9 @@ public final class TapService extends AccessibilityService {
+     private boolean panelCoversTarget() {
+         if (panel == null) return false;
+         int[] location = new int[2]; panel.getLocationOnScreen(location);
+-        return new Rect(location[0], location[1], location[0] + panel.getWidth(), location[1] + panel.getHeight()).contains((int)x, (int)y);
++        Rect box = new Rect(location[0], location[1], location[0] + panel.getWidth(), location[1] + panel.getHeight());
++        for (int i = 0; i < pointCount; i++) if (box.contains((int)pointsX[i], (int)pointsY[i])) return true;
++        return false;
+     }
+     private WindowManager.LayoutParams overlay(int width, int height) {
+         WindowManager.LayoutParams p = new WindowManager.LayoutParams(width, height,
+@@ -204,7 +243,7 @@ public final class TapService extends AccessibilityService {
+     @Override public void onAccessibilityEvent(AccessibilityEvent event) { /* Screen content is never read. */ }
+     @Override public void onInterrupt() { stop("접근성 서비스 중단"); }
+     @Override public void onConfigurationChanged(Configuration c) {
+-        super.onConfigurationChanged(c); stop("화면 설정 변경 · 위치를 다시 선택하세요"); selected = false;
++        super.onConfigurationChanged(c); stop("화면 설정 변경 · 위치를 다시 선택하세요"); pointCount = 0;
+         hideControls();
+     }
+     @Override public void onDestroy() {
+diff --git a/app/src/test/java/dev/tapbench/autoclicker/TapEngineTest.java b/app/src/test/java/dev/tapbench/autoclicker/TapEngineTest.java
+index de2cec8..62a75e2 100644
+--- a/app/src/test/java/dev/tapbench/autoclicker/TapEngineTest.java
++++ b/app/src/test/java/dev/tapbench/autoclicker/TapEngineTest.java
+@@ -35,11 +35,11 @@ public final class TapEngineTest {
+         }
+     }
+     @Test public void highTargetNeverOverlapsOrFakesCompletedClicks() {
+-        Harness h = new Harness(); h.engine.start(5000, 1); h.advance(1000);
++        Harness h = new Harness(); h.engine.start(90000, 1); h.advance(1000);
+         TapEngine.Snapshot s = h.engine.snapshot();
+         assertFalse(s.running); assertEquals(1, h.maxActive);
+         assertEquals(100, s.attempts); assertEquals(99, s.completed);
+-        assertEquals(1, s.pending()); assertTrue(s.skipped > 4000);
++        assertEquals(1, s.pending()); assertTrue(s.skipped > 80000);
+         assertEquals(99.0, s.completedCps(), 0.001);
+     }
+     @Test public void lowRateRespectsPacing() {
+@@ -47,46 +47,46 @@ public final class TapEngineTest {
+         assertEquals(10, h.engine.snapshot().attempts); assertEquals(10, h.engine.snapshot().completed);
+     }
+     @Test public void stoppedSessionDoesNotRestartFromLateCallback() {
+-        Harness h = new Harness(); h.engine.start(5000, 10); h.advance(0);
++        Harness h = new Harness(); h.engine.start(90000, 10); h.advance(0);
+         h.engine.stop("stop"); h.advance(1000);
+         assertEquals(1, h.engine.snapshot().attempts); assertEquals(0, h.engine.snapshot().completed);
+         assertEquals(1, h.engine.snapshot().pending());
+     }
+     @Test public void cancellationStopsInsteadOfFightingTheUser() {
+         Harness h = new Harness(); h.success = false;
+-        h.engine.start(5000, 10); h.advance(1000);
++        h.engine.start(90000, 10); h.advance(1000);
+         assertEquals(1, h.engine.snapshot().cancelled); assertFalse(h.engine.snapshot().running);
+         assertEquals(1, h.engine.snapshot().attempts);
+     }
+     @Test public void rejectedInputStopsWithoutRetryStorm() {
+         Harness h = new Harness(); h.accept = false;
+-        h.engine.start(5000, 10); h.advance(3000);
++        h.engine.start(90000, 10); h.advance(3000);
+         assertEquals(1, h.engine.snapshot().rejected); assertEquals(0, h.engine.snapshot().accepted);
+         assertEquals(1, h.engine.snapshot().attempts); assertFalse(h.engine.snapshot().running);
+     }
+     @Test public void missingCallbackHasBoundedTimeout() {
+         Harness h = new Harness(); h.answer = false;
+-        h.engine.start(5000, 10); h.advance(3000);
++        h.engine.start(90000, 10); h.advance(3000);
+         assertEquals(1, h.engine.snapshot().timedOut); assertEquals(1, h.engine.snapshot().attempts);
+         assertEquals(0, h.engine.snapshot().pending()); assertFalse(h.engine.snapshot().running);
+     }
+     @Test public void oldGenerationCannotChangeNewSession() {
+         Harness h = new Harness(); h.answer = false;
+-        h.engine.start(5000, 10); h.advance(0); TapEngine.Result old = h.last;
++        h.engine.start(90000, 10); h.advance(0); TapEngine.Result old = h.last;
+         h.engine.stop("stop"); h.engine.start(1, 10); h.advance(0);
+         old.complete(true);
+         assertEquals(0, h.engine.snapshot().completed); assertEquals(1, h.engine.snapshot().attempts);
+     }
+     @Test public void stoppingBeforeFirstDispatchSendsNothing() {
+-        Harness h = new Harness(); h.engine.start(5000, 1); h.engine.stop("stop"); h.advance(2000);
++        Harness h = new Harness(); h.engine.start(90000, 1); h.engine.stop("stop"); h.advance(2000);
+         assertEquals(0, h.engine.snapshot().attempts);
+     }
+     @Test public void invalidInputsAreRejected() {
+         Harness h = new Harness();
+-        for (int cps : new int[]{0, -1, 5001, Integer.MAX_VALUE}) {
++        for (int cps : new int[]{0, -1, 90001, Integer.MAX_VALUE}) {
+             assertThrows(IllegalArgumentException.class, () -> h.engine.start(cps, 10));
+         }
+-        assertThrows(IllegalArgumentException.class, () -> h.engine.start(5000, 0));
+-        assertThrows(IllegalArgumentException.class, () -> h.engine.start(5000, 3601));
++        assertThrows(IllegalArgumentException.class, () -> h.engine.start(90000, 0));
++        assertThrows(IllegalArgumentException.class, () -> h.engine.start(90000, 3601));
+     }
+ }
+diff --git a/scripts/device-test.sh b/scripts/device-test.sh
+index 862a714..12cac66 100644
+--- a/scripts/device-test.sh
++++ b/scripts/device-test.sh
+@@ -35,6 +35,8 @@ assert 'TAPBENCH_DEVICE_TEST_PASSED' in log, log
+ report = json.loads(Path('device-results/benchmark.json').read_text())
+ assert report['received_touches'] > 0, report
+ assert report['completed_gestures'] > 0, report
+-assert report['target_cps'] == 5000 and not report['running'], report
++assert report['target_cps'] == 90000 and not report['running'], report
++assert report['points_per_gesture'] == 3, report
++assert report['completed_taps'] == report['completed_gestures'] * 3, report
+ print(json.dumps(report, indent=2, ensure_ascii=False))
+ PY
+diff --git a/scripts/release-notes.md b/scripts/release-notes.md
+index da8e0a7..4034985 100644
+--- a/scripts/release-notes.md
++++ b/scripts/release-notes.md
+@@ -4,6 +4,6 @@ Android 7.0 이상용 네이티브 오토클릭커 테스트 APK입니다.
+ - **SHA256SUMS.txt**: APK SHA-256
+ - **TapBench-test-results.zip**: 단위 테스트, Lint, 기기 테스트 결과
+ 
+-초당 5,000회는 설정 가능한 목표이며 Android 실제 터치 속도를 보장하지 않습니다. 앱에서 접근성을 켠 뒤 성능 테스트를 실행하면 실제 수신 CPS를 볼 수 있습니다. CI 성공 여부는 이 릴리스의 커밋에 연결된 Actions에서 확인하세요. 기기 테스트가 실패해도 디버깅용 APK와 가능한 보고서를 보존합니다.
++초당 90,000회(제스처)는 설정 가능한 목표이며 Android 실제 터치 속도를 보장하지 않습니다. 지점 3곳을 동시에 누르므로 완료 제스처 1회는 탭 3회입니다. 앱에서 접근성을 켠 뒤 성능 테스트를 실행하면 실제 수신 CPS를 볼 수 있습니다. CI 성공 여부는 이 릴리스의 커밋에 연결된 Actions에서 확인하세요. 기기 테스트가 실패해도 디버깅용 APK와 가능한 보고서를 보존합니다.
+ 
+ 테스트용 debug 서명입니다. 이전 CI APK와 서명이 다르면 이전 앱을 제거하고 설치해야 합니다.
