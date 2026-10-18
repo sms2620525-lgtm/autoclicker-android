@@ -35,6 +35,8 @@ assert 'TAPBENCH_DEVICE_TEST_PASSED' in log, log
 report = json.loads(Path('device-results/benchmark.json').read_text())
 assert report['received_touches'] > 0, report
 assert report['completed_gestures'] > 0, report
-assert report['target_cps'] == 5000 and not report['running'], report
+assert report['target_cps'] == 90000 and not report['running'], report
+assert report['points_per_gesture'] == 3, report
+assert report['completed_taps'] == report['completed_gestures'] * 3, report
 print(json.dumps(report, indent=2, ensure_ascii=False))
 PY
