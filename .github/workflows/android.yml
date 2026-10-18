@@ -3,6 +3,7 @@ name: Android APK and real touch test
 on:
   push:
     branches: [main]
+    paths: ['app/**', 'scripts/**', '*.gradle', 'gradle.properties', 'settings.gradle']
   workflow_dispatch:
 
 permissions:

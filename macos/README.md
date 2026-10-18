@@ -1,0 +1,26 @@
+# TapBench for macOS
+
+macOS 13 이상, Apple Silicon과 Intel Mac을 모두 지원하는 네이티브 오토클릭커입니다.
+
+1. DMG를 열고 TapBench.app을 Applications 폴더로 드래그합니다.
+2. Applications에서 앱을 실행하고 `권한 설정`을 누릅니다. 시스템 설정 → 개인정보 보호 및 보안 → 손쉬운 사용에서 TapBench를 허용합니다.
+3. 앱의 `성능 테스트 웹사이트`를 엽니다. https://tapbench-click-lab.la123923769834767360.chatgpt.site
+4. 웹사이트에서 `측정 준비`를 누른 뒤 큰 패드 중앙에 포인터를 놓고 Control + Option + S로 위치를 지정합니다.
+5. Control + Option + Space로 시작합니다. 3초 뒤 같은 좌표를 클릭합니다. 같은 단축키로 언제든 중지합니다.
+
+앱을 전환하거나 창을 이동하면 클릭할 좌표가 달라질 수 있으므로 위치를 다시 지정하세요. 웹 측정은 첫 클릭부터 시작합니다. 브라우저의 탭을 바꾸면 측정이 중단됩니다.
+
+목표 속도 1–5,000 CPS, 실행 시간 1–3,600초. 기본값 5,000 CPS / 10초.
+앱의 `전송 속도`는 macOS에 보낸 mouse-down/up 쌍이며, 실제 브라우저 수신 속도와 다를 수 있습니다. 5,000 CPS 달성을 보장하지 않습니다. 지연된 슬롯은 버리고 몰아서 실행하지 않습니다.
+
+## 배포와 검증
+
+GitHub Actions의 `macOS DMG`에서 Swift 앱을 두 아키텍처로 컴파일하고 universal binary로 합칩니다. 16개 스케줄 검사, 코드 서명 구조 검사, DMG 무결성 검사를 통과한 후 private GitHub Release에 DMG/ZIP/검증 기록을 게시합니다. 소스는 `macos/`에 있습니다.
+
+이 빌드는 ad-hoc 서명된 테스트 앱이며 Apple Developer ID 서명 및 공증은 없습니다. macOS가 실행을 차단하면 시스템 설정의 개인정보 보호 및 보안에서 이 앱에 대한 `확인 없이 열기` 절차를 사용할 수 있습니다. 시스템 전체 보안 기능을 끄지 마세요. 정식 공증에는 별도의 Apple Developer 서명 자격 증명이 필요합니다.
+
+CI는 클릭 수신 성능이나 손쉬운 사용 허용을 자동으로 검증하지 않습니다. 실제 Mac의 성능은 위 웹사이트에서 측정하세요. 앱은 전역 단축키만 등록하며 키 입력 기록, 화면 캡처, 원격 전송을 하지 않습니다. 측정 중 전역 단축키가 준비되지 않으면 시작하지 않습니다.
+
+로컬 빌드: Xcode Command Line Tools가 있는 Mac에서 `bash macos/scripts/build.sh`.
+
+API: https://developer.apple.com/documentation/coregraphics/cgevent
