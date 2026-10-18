@@ -2,6 +2,8 @@ package dev.tapbench.autoclicker;
 
 /** Single-thread-confined, bounded single-flight scheduler. No busy spin or queued backlog. */
 public final class TapEngine {
+    /** Upper bound of the target rate setting. A request, never a guaranteed throughput. */
+    public static final int MAX_CPS = 90_000;
     public interface Clock { long now(); }
     public interface Queue { void post(Runnable task, long delayMillis); void remove(Runnable task); }
     public interface Result { void complete(boolean success); }
@@ -24,8 +26,8 @@ public final class TapEngine {
     }
 
     public void start(int cps, int seconds) {
-        if (cps < 1 || cps > 5000 || seconds < 1 || seconds > 3600)
-            throw new IllegalArgumentException("속도 1~5000, 시간 1~3600초");
+        if (cps < 1 || cps > MAX_CPS || seconds < 1 || seconds > 3600)
+            throw new IllegalArgumentException("속도 1~" + MAX_CPS + ", 시간 1~3600초");
         if (running) throw new IllegalStateException("이미 실행 중입니다");
         generation++;
         target = cps;

@@ -38,18 +38,21 @@ public final class TapService extends AccessibilityService {
     private TextView status;
     private Button toggle;
     private WindowManager.LayoutParams panelParams;
+    /** Number of tap points pressed together by one gesture. GestureDescription allows up to 10 strokes. */
+    public static final int MAX_POINTS = 3;
     private TapEngine engine;
     private GestureDescription gesture;
-    private float x, y;
-    private boolean selected, armed, benchmark;
+    private final float[] pointsX = new float[MAX_POINTS], pointsY = new float[MAX_POINTS];
+    private int pointCount;
+    private boolean armed, benchmark;
     private int armToken;
     private final Runnable refresh = new Runnable() {
         @Override public void run() {
             if (panel == null) return;
             TapEngine.Snapshot s = engine.snapshot();
             status.setText(armed ? "2초 뒤 시작 · 정지로 취소" : String.format(Locale.KOREA,
-                "%s  |  %.1f 회/초\n좌표 %s", s.reason, s.completedCps(),
-                selected ? Math.round(x) + ", " + Math.round(y) : "미선택"));
+                "%s  |  제스처 %.1f/초 · 탭 %.1f/초\n지점 %d/%d  %s", s.reason, s.completedCps(),
+                s.completedCps() * pointCount, pointCount, MAX_POINTS, pointsText()));
             toggle.setText(armed || s.running ? "■ 정지" : "▶ 시작");
             handler.postDelayed(this, 250);
         }
@@ -75,6 +78,7 @@ public final class TapService extends AccessibilityService {
     }
 
     public TapEngine.Snapshot snapshot() { return engine.snapshot(); }
+    public int pointCount() { return pointCount; }
     public boolean isArmed() { return armed; }
     public boolean isBenchmark() { return benchmark; }
 
@@ -105,11 +109,11 @@ public final class TapService extends AccessibilityService {
         position.setOnClickListener(v -> { stop("위치 선택"); choosePosition(); });
         toggle.setOnClickListener(v -> {
             if (armed || engine.snapshot().running) { stop("사용자가 정지"); return; }
-            if (!selected) { toast("먼저 위치를 선택하세요"); return; }
+            if (pointCount < 1) { toast("먼저 위치를 선택하세요"); return; }
             if (panelCoversTarget()) { toast("제어창을 클릭 위치 밖으로 옮기세요"); return; }
-            int cps = getSharedPreferences("config", MODE_PRIVATE).getInt("cps", 5000);
+            int cps = getSharedPreferences("config", MODE_PRIVATE).getInt("cps", TapEngine.MAX_CPS);
             int seconds = getSharedPreferences("config", MODE_PRIVATE).getInt("seconds", 10);
-            arm(x, y, cps, seconds, false);
+            arm(pointsX, pointsY, pointCount, cps, seconds, false);
         });
         close.setOnClickListener(v -> { stop("제어창 닫힘"); hideControls(); });
         handle.setOnTouchListener(new View.OnTouchListener() {
@@ -140,14 +144,21 @@ public final class TapService extends AccessibilityService {
 
     private void choosePosition() {
         removePicker();
+        pointCount = 0;
         TextView select = new TextView(this);
-        select.setText("반복 클릭할 지점을 한 번 누르세요\n20초 후 자동 취소");
+        select.setText(pickerPrompt());
         select.setGravity(Gravity.CENTER); select.setTextSize(20); select.setTextColor(Color.WHITE);
         select.setBackgroundColor(0x55344660); picker = select;
         select.setOnTouchListener((v, event) -> {
             if (event.getActionMasked() == MotionEvent.ACTION_UP) {
-                x = event.getRawX(); y = event.getRawY(); selected = true;
-                v.performClick(); removePicker(); toast("클릭 좌표: " + Math.round(x) + ", " + Math.round(y));
+                if (pointCount < MAX_POINTS) {
+                    pointsX[pointCount] = event.getRawX(); pointsY[pointCount] = event.getRawY();
+                    pointCount++;
+                }
+                v.performClick();
+                toast(pointCount + "번째 좌표: " + Math.round(pointsX[pointCount - 1]) + ", " + Math.round(pointsY[pointCount - 1]));
+                // The overlay closes once every point is set; an early timeout keeps what was picked.
+                if (pointCount >= MAX_POINTS) removePicker(); else select.setText(pickerPrompt());
             }
             return true;
         });
@@ -155,18 +166,44 @@ public final class TapService extends AccessibilityService {
         handler.postDelayed(() -> { if (picker == select) removePicker(); }, 20_000);
     }
 
+    private String pickerPrompt() {
+        return "반복 클릭할 지점 " + (pointCount + 1) + "/" + MAX_POINTS + " 을 누르세요\n"
+            + "선택한 지점 " + pointCount + "개 · 20초 후 자동 종료";
+    }
+
+    private String pointsText() {
+        if (pointCount < 1) return "미선택";
+        StringBuilder text = new StringBuilder();
+        for (int i = 0; i < pointCount; i++)
+            text.append(i > 0 ? " / " : "").append(Math.round(pointsX[i])).append(",").append(Math.round(pointsY[i]));
+        return text.toString();
+    }
+
     public void arm(float px, float py, int cps, int seconds, boolean test) {
+        arm(new float[]{px}, new float[]{py}, 1, cps, seconds, test);
+    }
+
+    public void arm(float[] px, float[] py, int count, int cps, int seconds, boolean test) {
         stop("새 실행 준비"); removePicker();
         DisplayMetrics bounds = bounds();
-        if (!Float.isFinite(px) || !Float.isFinite(py) || px < 0 || py < 0 || px >= bounds.widthPixels || py >= bounds.heightPixels)
-            throw new IllegalArgumentException("화면 안의 좌표를 선택하세요");
-        if (cps < 1 || cps > 5000 || seconds < 1 || seconds > 3600)
-            throw new IllegalArgumentException("속도 1~5000, 시간 1~3600초");
-        x = px; y = py; selected = true; benchmark = test;
+        if (count < 1 || count > MAX_POINTS || px.length < count || py.length < count)
+            throw new IllegalArgumentException("클릭 지점은 1~" + MAX_POINTS + "개입니다");
+        if (cps < 1 || cps > TapEngine.MAX_CPS || seconds < 1 || seconds > 3600)
+            throw new IllegalArgumentException("속도 1~" + TapEngine.MAX_CPS + ", 시간 1~3600초");
+        for (int i = 0; i < count; i++)
+            if (!Float.isFinite(px[i]) || !Float.isFinite(py[i]) || px[i] < 0 || py[i] < 0
+                || px[i] >= bounds.widthPixels || py[i] >= bounds.heightPixels)
+                throw new IllegalArgumentException("화면 안의 좌표를 선택하세요");
+        for (int i = 0; i < count; i++) { pointsX[i] = px[i]; pointsY[i] = py[i]; }
+        pointCount = count; benchmark = test;
         if (test) hideControls();
-        Path path = new Path(); path.moveTo(x, y);
-        gesture = new GestureDescription.Builder()
-            .addStroke(new GestureDescription.StrokeDescription(path, 0, 1)).build();
+        // One gesture, one stroke per point: the points are pressed at the same moment, not in turns.
+        GestureDescription.Builder builder = new GestureDescription.Builder();
+        for (int i = 0; i < count; i++) {
+            Path path = new Path(); path.moveTo(pointsX[i], pointsY[i]);
+            builder.addStroke(new GestureDescription.StrokeDescription(path, 0, 1));
+        }
+        gesture = builder.build();
         armed = true; int token = ++armToken;
         handler.postDelayed(() -> {
             if (!armed || token != armToken) return;
@@ -185,7 +222,9 @@ public final class TapService extends AccessibilityService {
     private boolean panelCoversTarget() {
         if (panel == null) return false;
         int[] location = new int[2]; panel.getLocationOnScreen(location);
-        return new Rect(location[0], location[1], location[0] + panel.getWidth(), location[1] + panel.getHeight()).contains((int)x, (int)y);
+        Rect box = new Rect(location[0], location[1], location[0] + panel.getWidth(), location[1] + panel.getHeight());
+        for (int i = 0; i < pointCount; i++) if (box.contains((int)pointsX[i], (int)pointsY[i])) return true;
+        return false;
     }
     private WindowManager.LayoutParams overlay(int width, int height) {
         WindowManager.LayoutParams p = new WindowManager.LayoutParams(width, height,
@@ -204,7 +243,7 @@ public final class TapService extends AccessibilityService {
     @Override public void onAccessibilityEvent(AccessibilityEvent event) { /* Screen content is never read. */ }
     @Override public void onInterrupt() { stop("접근성 서비스 중단"); }
     @Override public void onConfigurationChanged(Configuration c) {
-        super.onConfigurationChanged(c); stop("화면 설정 변경 · 위치를 다시 선택하세요"); selected = false;
+        super.onConfigurationChanged(c); stop("화면 설정 변경 · 위치를 다시 선택하세요"); pointCount = 0;
         hideControls();
     }
     @Override public void onDestroy() {

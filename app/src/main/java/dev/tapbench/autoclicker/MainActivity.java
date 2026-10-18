@@ -64,7 +64,7 @@ public final class MainActivity extends Activity {
         setContentView(scroll);
         label(content, "TAPBENCH  /  ANDROID", 12, MINT, true);
         label(content, "같은 곳을, 반복해서.", 29, Color.WHITE, true);
-        label(content, "목표는 5,000회/초. 실제 속도는 기기에서 측정합니다.", 14, MUTED, false);
+        label(content, "지점 3곳 · 목표는 90,000회/초. 실제 속도는 기기에서 측정합니다.", 14, MUTED, false);
 
         LinearLayout permissions = card();
         connection = label(permissions, "접근성 연결 확인 중", 16, Color.WHITE, true);
@@ -77,20 +77,22 @@ public final class MainActivity extends Activity {
 
         LinearLayout setup = card();
         label(setup, "01  클릭 설정", 17, Color.WHITE, true);
-        cpsInput = number(setup, "목표 속도 (회/초 · 1~5,000)", "cps", 5000);
+        cpsInput = number(setup, "목표 속도 (제스처/초 · 1~90,000)", "cps", TapEngine.MAX_CPS);
         secondsInput = number(setup, "실행 시간 (초 · 1~3,600)", "seconds", 10);
-        label(setup, "Android는 터치 처리 시간을 제한합니다. 5,000 설정은 목표값이며 실제 5,000번의 터치를 보장하지 않습니다. 완료 응답을 기다려 겹치는 입력과 무한 대기를 막습니다.", 13, MUTED, false);
+        label(setup, "지점 3곳을 선택하면 한 번의 제스처가 세 곳을 동시에 누릅니다. 따라서 실제 탭 수는 완료 제스처 수의 3배입니다.", 13, MUTED, false);
+        label(setup, "Android는 터치 처리 시간을 제한합니다. 90,000 설정은 목표값일 뿐이며 실제 90,000번의 터치를 보장하지 않습니다. 완료 응답을 기다려 겹치는 입력과 무한 대기를 막으므로, 실제 속도는 기기의 입력 처리 속도에서 멈춥니다.", 13, MUTED, false);
         button(setup, "설정 저장 · 떠 있는 제어창 열기", () -> {
             if (!saveConfig()) return;
             TapService s = requireService(); if (s == null) return;
             s.stop("제어창 열기"); s.showControls();
             toast("대상 앱으로 이동 → 위치 → 클릭 지점 선택 → 시작");
         });
-        label(setup, "제어창에서 위치를 누르고 지점을 선택하세요. 시작 후 2초 뒤 반복 터치합니다. 제어창 상단을 드래그해 옮길 수 있습니다.", 13, MUTED, false);
+        label(setup, "제어창에서 위치를 누르고 지점 3곳을 차례로 선택하세요. 시작 후 2초 뒤 반복 터치합니다. 제어창 상단을 드래그해 옮길 수 있습니다.", 13, MUTED, false);
 
         LinearLayout bench = card();
         label(bench, "02  실제 터치 성능 테스트", 17, Color.WHITE, true);
-        label(bench, "아래 패드에 실제로 도착한 터치 종료(ACTION_UP)를 셉니다. 테스트 중 화면을 직접 만지면 수신 수에 포함됩니다.", 13, MUTED, false);
+        label(bench, "아래 패드에 실제로 도착한 손가락별 터치 종료(ACTION_UP · ACTION_POINTER_UP)를 셉니다. 테스트 중 화면을 직접 만지면 수신 수에 포함됩니다.", 13, MUTED, false);
+        label(bench, "테스트는 패드 안의 3개 지점을 동시에 누릅니다. 완료 제스처 1회 = 탭 3회입니다.", 13, MUTED, false);
         button(bench, "설정한 속도로 10초 테스트", () -> {
             if (!saveConfig()) return;
             startBenchmark(Integer.parseInt(cpsInput.getText().toString()), 10);
@@ -110,15 +112,17 @@ public final class MainActivity extends Activity {
         pad.setContentDescription("실제 터치 측정 패드");
         bench.addView(pad, new LinearLayout.LayoutParams(-1, dp(180)));
         pad.setOnTouchListener((v, event) -> {
-            if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+            int action = event.getActionMasked();
+            // Three simultaneous strokes arrive as three fingers: one ACTION_UP plus ACTION_POINTER_UP for the rest.
+            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_POINTER_UP) {
                 TapService s = TapService.get();
                 if (s != null && s.isBenchmark() && s.snapshot().running) received++;
-                v.performClick();
+                if (action == MotionEvent.ACTION_UP) v.performClick();
             }
             return true;
         });
         button(bench, "결과 JSON 저장", this::export);
-        label(content, "완료 CPS = Android 완료 응답/초\n수신 CPS = 측정 패드에 도착한 터치/초\n다른 앱의 내부 클릭 처리 여부는 확인할 수 없습니다.", 12, MUTED, false);
+        label(content, "완료 CPS = Android 완료 응답/초 (지점 3곳이면 탭은 그 3배)\n수신 CPS = 측정 패드에 도착한 터치/초\n다른 앱의 내부 클릭 처리 여부는 확인할 수 없습니다.", 12, MUTED, false);
     }
 
     public void startBenchmark(int cps, int seconds) {
@@ -130,7 +134,11 @@ public final class MainActivity extends Activity {
         handler.postDelayed(() -> {
             if (!resumed || token != benchmarkToken) return;
             int[] location = new int[2]; pad.getLocationOnScreen(location);
-            s.arm(location[0] + pad.getWidth() / 2f, location[1] + pad.getHeight() / 2f, cps, seconds, true);
+            // Three points spread across the pad, so every stroke lands inside the measured area.
+            float centerX = location[0] + pad.getWidth() / 2f, centerY = location[1] + pad.getHeight() / 2f;
+            float gap = pad.getWidth() / 4f;
+            s.arm(new float[]{centerX - gap, centerX, centerX + gap},
+                new float[]{centerY, centerY, centerY}, TapService.MAX_POINTS, cps, seconds, true);
             renderStats();
         }, 150);
     }
@@ -141,18 +149,22 @@ public final class MainActivity extends Activity {
         TapService service = TapService.get();
         if (service == null) throw new IllegalStateException("서비스가 연결되지 않았습니다");
         TapEngine.Snapshot s = service.snapshot();
+        int points = service.pointCount();
         JSONObject data = new JSONObject();
-        data.put("schema_version", 1).put("device", Build.MANUFACTURER + " " + Build.MODEL)
+        data.put("schema_version", 2).put("device", Build.MANUFACTURER + " " + Build.MODEL)
             .put("android_api", Build.VERSION.SDK_INT).put("target_cps", s.target)
+            .put("points_per_gesture", points).put("target_taps_per_second", (long) s.target * points)
             .put("elapsed_seconds", s.seconds()).put("dispatch_attempts", s.attempts)
             .put("accepted", s.accepted).put("completed_gestures", s.completed)
+            .put("completed_taps", s.completed * points)
+            .put("completed_taps_per_second", s.completedCps() * points)
             .put("cancelled", s.cancelled).put("rejected", s.rejected).put("timed_out", s.timedOut)
             .put("pending_at_stop", s.pending()).put("skipped_target_slots", s.skipped)
             .put("completed_cps", s.completedCps()).put("stop_reason", s.reason)
             .put("running", s.running).put("measurement", service.isBenchmark() ? "real_touch_pad" : "gesture_callbacks_only")
             .put("received_touches", service.isBenchmark() ? received : JSONObject.NULL)
             .put("received_cps", service.isBenchmark() && s.seconds() > 0 ? received / s.seconds() : JSONObject.NULL)
-            .put("note", "Target CPS is a request, not a guarantee. Completion is not proof that another app handled a click. Manual touches on the pad also count.");
+            .put("note", "Target CPS counts gestures; each gesture presses points_per_gesture points at once. Target CPS is a request, not a guarantee. Completion is not proof that another app handled a click. Manual touches on the pad also count.");
         return data.toString(2);
     }
 
@@ -162,9 +174,11 @@ public final class MainActivity extends Activity {
         connection.setTextColor(service == null ? Color.rgb(255, 193, 112) : MINT);
         if (service == null) return;
         TapEngine.Snapshot s = service.snapshot();
+        int points = service.pointCount();
         stats.setText(String.format(Locale.KOREA,
-            "%s\n목표 %,d 회/초 · %.1f초\n완료 %,d회 · %.1f CPS\n수신 %s\n취소 %,d · 거절 %,d · 시간초과 %,d\n건너뛴 목표 슬롯 %,d · 미확인 %,d",
-            service.isArmed() ? "2초 뒤 시작합니다" : s.reason, s.target, s.seconds(), s.completed, s.completedCps(),
+            "%s\n목표 %,d 제스처/초 · 지점 %d곳 · %.1f초\n완료 제스처 %,d회 · %.1f/초\n실제 탭 %,d회 · %.1f/초\n수신 %s\n취소 %,d · 거절 %,d · 시간초과 %,d\n건너뛴 목표 슬롯 %,d · 미확인 %,d",
+            service.isArmed() ? "2초 뒤 시작합니다" : s.reason, s.target, points, s.seconds(),
+            s.completed, s.completedCps(), s.completed * points, s.completedCps() * points,
             service.isBenchmark() ? String.format(Locale.KOREA, "%,d회 · %.1f CPS", received, s.seconds() > 0 ? received / s.seconds() : 0) : "테스트 화면에서만 측정",
             s.cancelled, s.rejected, s.timedOut, s.skipped, s.pending()));
         pad.setText(String.format(Locale.KOREA, "◎\n터치 측정 패드\n%,d회 수신", received));
@@ -175,10 +189,10 @@ public final class MainActivity extends Activity {
         try {
             int cps = Integer.parseInt(cpsInput.getText().toString().trim());
             int seconds = Integer.parseInt(secondsInput.getText().toString().trim());
-            if (cps < 1 || cps > 5000 || seconds < 1 || seconds > 3600) throw new NumberFormatException();
+            if (cps < 1 || cps > TapEngine.MAX_CPS || seconds < 1 || seconds > 3600) throw new NumberFormatException();
             getSharedPreferences("config", MODE_PRIVATE).edit().putInt("cps", cps).putInt("seconds", seconds).apply();
             return true;
-        } catch (NumberFormatException error) { toast("속도는 1~5000, 시간은 1~3600의 정수로 입력하세요"); return false; }
+        } catch (NumberFormatException error) { toast("속도는 1~" + TapEngine.MAX_CPS + ", 시간은 1~3600의 정수로 입력하세요"); return false; }
     }
     private TapService requireService() {
         TapService s = TapService.get(); if (s == null) toast("접근성 설정에서 TapBench를 먼저 켜세요"); return s;
