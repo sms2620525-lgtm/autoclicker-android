@@ -17,7 +17,7 @@ xcrun swift scripts/make-icon.swift build/AppIcon.iconset
 iconutil -c icns build/AppIcon.iconset -o build/TapBench.app/Contents/Resources/AppIcon.icns
 codesign --force --sign - --timestamp=none build/TapBench.app
 codesign --verify --deep --strict --verbose=2 build/TapBench.app
-lipo -verify_arch arm64 x86_64 build/TapBench.app/Contents/MacOS/TapBench
+lipo build/TapBench.app/Contents/MacOS/TapBench -verify_arch arm64 x86_64
 mkdir -p build/dmg
 ditto build/TapBench.app build/dmg/TapBench.app
 ln -s /Applications build/dmg/Applications
