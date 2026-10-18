@@ -3,6 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p build dist build/TapBench.app/Contents/MacOS build/TapBench.app/Contents/Resources
 SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
+APP_VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Info.plist)"
 xcrun swiftc -swift-version 5 Sources/RunSchedule.swift Tests/ScheduleTests.swift -o build/schedule-tests
 build/schedule-tests | tee dist/schedule-tests.txt
 for arch in arm64 x86_64; do
@@ -20,12 +21,12 @@ codesign --verify --deep --strict --verbose=2 build/TapBench.app
 lipo build/TapBench.app/Contents/MacOS/TapBench -verify_arch arm64 x86_64
 mkdir -p build/dmg
 ditto build/TapBench.app build/dmg/TapBench.app
-ln -s /Applications build/dmg/Applications
+ln -sfn /Applications build/dmg/Applications
 cp README.md build/dmg/READ-ME.txt
-hdiutil create -volname TapBench -srcfolder build/dmg -ov -format UDZO dist/TapBench-1.0.0-universal.dmg
-hdiutil verify dist/TapBench-1.0.0-universal.dmg
-ditto -c -k --keepParent build/TapBench.app dist/TapBench-1.0.0-universal.zip
-(cd dist && shasum -a 256 TapBench-1.0.0-universal.dmg TapBench-1.0.0-universal.zip > SHA256SUMS.txt)
+hdiutil create -volname TapBench -srcfolder build/dmg -ov -format UDZO "dist/TapBench-${APP_VERSION}-universal.dmg"
+hdiutil verify "dist/TapBench-${APP_VERSION}-universal.dmg"
+ditto -c -k --keepParent build/TapBench.app "dist/TapBench-${APP_VERSION}-universal.zip"
+(cd dist && shasum -a 256 "TapBench-${APP_VERSION}-universal.dmg" "TapBench-${APP_VERSION}-universal.zip" > SHA256SUMS.txt)
 {
   sw_vers
   file build/TapBench.app/Contents/MacOS/TapBench

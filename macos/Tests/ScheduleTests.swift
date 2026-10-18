@@ -31,6 +31,22 @@ struct ScheduleTests {
         check(!slow.takeSlot(at: 999_999_999), "one CPS limit")
         check(slow.takeSlot(at: 1_000_000_000), "one CPS next second")
         check(!slow.takeSlot(at: 2_000_000_000), "one CPS deadline")
+        check((0..<6).map { TargetOrder.index(after: UInt64($0), targetCount: 2) } == [0, 1, 0, 1, 0, 1], "two points alternate")
+        check((0..<6).allSatisfy { TargetOrder.index(after: UInt64($0), targetCount: 1) == 0 }, "single point remains supported")
+        var late = RunSchedule(cps: 5000, seconds: 1, start: 0)
+        var routed: [Int] = []
+        let times: [UInt64] = [0, 400_000, 1_200_000, 1_200_000, 1_600_000]
+        for time in times {
+            if late.takeSlot(at: time) {
+                routed.append(TargetOrder.index(after: UInt64(routed.count), targetCount: 2))
+            }
+        }
+        check(routed == [0, 1, 0, 1], "dropped and duplicate timer slots do not break alternation")
+        check(late.skipped == 5, "late slots are accounted separately from targets")
+        let even = (0..<50_000).map { TargetOrder.index(after: UInt64($0), targetCount: 2) }
+        check(even.filter { $0 == 0 }.count == 25_000 && even.filter { $0 == 1 }.count == 25_000,
+              "total target is shared equally, not doubled")
+        check(TargetOrder.index(after: 0, targetCount: 2) == 0, "a restarted run starts at target one")
         print("PASS: \(checks) schedule checks. These are deterministic logic tests, not received-click performance measurements.")
     }
 }

@@ -24,3 +24,11 @@ struct RunSchedule {
         return true
     }
 }
+
+/// Advance by clicks actually posted, not timer slots, so late callbacks cannot starve a target.
+enum TargetOrder {
+    static func index(after postedPairs: UInt64, targetCount: Int) -> Int {
+        precondition((1...2).contains(targetCount))
+        return Int(postedPairs % UInt64(targetCount))
+    }
+}

@@ -1,6 +1,12 @@
 import Foundation
 import ApplicationServices
 
+struct TargetStats: Codable {
+    let x: Double
+    let y: Double
+    var postedPairs: UInt64 = 0
+}
+
 struct RunStats: Codable {
     var active = false
     var postedPairs: UInt64 = 0
@@ -8,8 +14,7 @@ struct RunStats: Codable {
     var elapsedSeconds = 0.0
     var targetCPS = 5000
     var requestedSeconds = 10
-    var x = 0.0
-    var y = 0.0
+    var targets: [TargetStats] = []
     var stopReason = "준비"
     var postedCPS: Double { elapsedSeconds > 0 ? Double(postedPairs) / elapsedSeconds : 0 }
 }
@@ -20,32 +25,35 @@ final class ClickEngine {
     private var timer: DispatchSourceTimer?
     private var schedule: RunSchedule?
     private var stats = RunStats()
-    private var down: CGEvent?
-    private var up: CGEvent?
+    private var events: [(down: CGEvent, up: CGEvent)] = []
 
-    func start(point: CGPoint, cps: Int, seconds: Int) -> Bool {
+    func start(points: [CGPoint], cps: Int, seconds: Int) -> Bool {
         guard AXIsProcessTrusted(), (1...5000).contains(cps), (1...3600).contains(seconds),
-              let source = CGEventSource(stateID: .privateState),
-              let downEvent = CGEvent(mouseEventSource: source, mouseType: .leftMouseDown,
-                                      mouseCursorPosition: point, mouseButton: .left),
-              let upEvent = CGEvent(mouseEventSource: source, mouseType: .leftMouseUp,
-                                    mouseCursorPosition: point, mouseButton: .left) else { return false }
+              (1...2).contains(points.count), points.allSatisfy({ $0.x.isFinite && $0.y.isFinite }),
+              let source = CGEventSource(stateID: .privateState) else { return false }
         source.localEventsSuppressionInterval = 0
-        for event in [downEvent, upEvent] {
-            event.flags = []
-            event.setIntegerValueField(.mouseEventClickState, value: 1)
+        var prepared: [(down: CGEvent, up: CGEvent)] = []
+        for point in points {
+            guard let downEvent = CGEvent(mouseEventSource: source, mouseType: .leftMouseDown,
+                                          mouseCursorPosition: point, mouseButton: .left),
+                  let upEvent = CGEvent(mouseEventSource: source, mouseType: .leftMouseUp,
+                                        mouseCursorPosition: point, mouseButton: .left) else { return false }
+            for event in [downEvent, upEvent] {
+                event.flags = []
+                event.setIntegerValueField(.mouseEventClickState, value: 1)
+            }
+            downEvent.setDoubleValueField(.mouseEventPressure, value: 1)
+            upEvent.setDoubleValueField(.mouseEventPressure, value: 0)
+            prepared.append((downEvent, upEvent))
         }
-        downEvent.setDoubleValueField(.mouseEventPressure, value: 1)
-        upEvent.setDoubleValueField(.mouseEventPressure, value: 0)
         lock.lock()
         defer { lock.unlock() }
         guard !stats.active else { return false }
         let now = DispatchTime.now().uptimeNanoseconds
         schedule = RunSchedule(cps: cps, seconds: seconds, start: now)
         stats = RunStats(active: true, targetCPS: cps, requestedSeconds: seconds,
-                         x: point.x, y: point.y, stopReason: "실행 중")
-        down = downEvent
-        up = upEvent
+                         targets: points.map { TargetStats(x: $0.x, y: $0.y) }, stopReason: "실행 중")
+        events = prepared
         let sourceTimer = DispatchSource.makeTimerSource(flags: .strict, queue: queue)
         sourceTimer.schedule(deadline: .now(), repeating: .nanoseconds(Int(schedule!.interval)),
                              leeway: .nanoseconds(0))
@@ -68,7 +76,9 @@ final class ClickEngine {
         let due = current.takeSlot(at: now)
         schedule = current
         stats.skippedSlots = current.skipped
-        guard due, let down = down, let up = up else { return }
+        guard due, !events.isEmpty else { return }
+        let index = TargetOrder.index(after: stats.postedPairs, targetCount: events.count)
+        let (down, up) = events[index]
         // Exactly one complete pair per callback. Nothing is queued after stop.
         let number = Int64(stats.postedPairs + 1)
         down.timestamp = now
@@ -78,6 +88,7 @@ final class ClickEngine {
         up.setIntegerValueField(.mouseEventNumber, value: number)
         up.post(tap: .cghidEventTap)
         stats.postedPairs += 1
+        stats.targets[index].postedPairs += 1
     }
 
     private func finishLocked(_ reason: String) {
@@ -85,8 +96,7 @@ final class ClickEngine {
         stats.stopReason = reason
         timer?.cancel()
         timer = nil
-        down = nil
-        up = nil
+        events.removeAll()
     }
 
     func stop(_ reason: String = "사용자 중지") {

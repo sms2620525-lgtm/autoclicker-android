@@ -22,7 +22,8 @@ final class Hotkeys {
         }, 1, &type, context, &handler)
         guard status == noErr else { return }
         var ok = true
-        let keys: [(UInt32, UInt32)] = [(1, 1), (49, 2)]
+        // Control+Option+S: target 1; Control+Option+D: target 2; Control+Option+Space: toggle.
+        let keys: [(UInt32, UInt32)] = [(1, 1), (2, 3), (49, 2)]
         for (keyCode, id) in keys {
             var ref: EventHotKeyRef?
             let keyID = EventHotKeyID(signature: 0x54415042, id: id)
