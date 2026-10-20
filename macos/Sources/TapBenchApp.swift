@@ -6,7 +6,8 @@ import UniformTypeIdentifiers
 private let testURL = URL(string: "https://tapbench-click-lab.la123923769834767360.chatgpt.site")!
 
 final class AppModel: ObservableObject {
-    @Published var cps = "5000"
+    @Published var cps = String(ClickLimits.defaultCPS)
+    @Published var mode: ClickMode = .fast
     @Published var seconds = "10"
     @Published var targetCount = 2
     @Published var targets: [CGPoint?] = [nil, nil]
@@ -118,15 +119,16 @@ final class AppModel: ObservableObject {
         guard hotkeysReady else { status = "단축키를 등록할 수 없습니다. 다른 앱의 ⌃⌥S / ⌃⌥D / ⌃⌥Space 설정을 확인한 뒤 다시 실행하세요."; return }
         let points = targets.prefix(targetCount).compactMap { $0 }
         guard points.count == targetCount else { status = "선택한 \(targetCount)개 위치를 모두 지정하세요."; return }
-        guard let rate = Int(cps), (1...5000).contains(rate),
+        guard let rate = Int(cps), (1...ClickLimits.maxCPS).contains(rate),
               let duration = Int(seconds), (1...3600).contains(duration) else {
-            status = "목표 속도는 1–5,000, 실행 시간은 1–3,600의 정수로 입력하세요."
+            status = "목표 속도는 1–20,000, 실행 시간은 1–3,600의 정수로 입력하세요."
             return
         }
+        let selectedMode = mode
         busy = true
         scheduleAfterThreeSeconds(kind: "시작 대기 · 브라우저로 돌아가세요") { [weak self] in
             guard let self = self else { return }
-            if !self.engine.start(points: points, cps: rate, seconds: duration) {
+            if !self.engine.start(points: points, cps: rate, seconds: duration, mode: selectedMode) {
                 self.busy = false
                 self.status = "시작하지 못했습니다. 손쉬운 사용 권한을 확인하세요."
             }
@@ -149,12 +151,13 @@ final class AppModel: ObservableObject {
         panel.allowedContentTypes = [.json]
         guard panel.runModal() == .OK, let url = panel.url else { return }
         struct Report: Encodable {
-            let schema = "tapbench-macos-v2"
+            let schema = "tapbench-macos-v3"
+            let appVersion = "1.2.0"
             let createdAt: Date
             let system: String
             let stats: RunStats
             let postedCPS: Double
-            let note = "Target CPS is total across all points. Points alternate by posted pairs, including after skipped slots. Posted pairs are requests to macOS, not proof that the target app received clicks."
+            let note = "Target CPS is total across all points. Fast mode posts only due slots in batches of at most 32, dropping older backlog; steady mode posts at most one pair per callback. Points alternate by posted pairs. Posted pairs are requests to macOS, not proof that the target app received clicks."
         }
         do {
             let current = engine.snapshot()
@@ -178,7 +181,7 @@ struct ContentView: View {
                 Image(systemName: "cursorarrow.click.2").font(.system(size: 32)).foregroundColor(.mint)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("TapBench").font(.system(size: 30, weight: .bold, design: .rounded))
-                    Text("macOS 오토클릭커 · 1.1.0").foregroundColor(.secondary)
+                    Text("macOS 오토클릭커 · 1.2.0").foregroundColor(.secondary)
                 }
                 Spacer()
                 Text("MAC").font(.caption.monospaced()).padding(8).background(.white.opacity(0.08)).cornerRadius(8)
@@ -218,14 +221,25 @@ struct ContentView: View {
             HStack(spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("02   총 목표 속도 · 회/초").font(.headline)
-                    TextField("1–5000", text: $model.cps).textFieldStyle(.roundedBorder).disabled(model.busy)
+                    TextField("1–20000", text: $model.cps).textFieldStyle(.roundedBorder).disabled(model.busy)
                 }
                 VStack(alignment: .leading, spacing: 8) {
                     Text("03   실행 시간 · 초").font(.headline)
                     TextField("1–3600", text: $model.seconds).textFieldStyle(.roundedBorder).disabled(model.busy)
                 }
             }
-            Text(model.targetCount == 2 ? "총 5,000 CPS 설정 시 지점당 목표는 약 2,500 CPS입니다." : "선택한 한 지점에 총 목표 속도를 적용합니다.")
+            HStack {
+                Text("클릭 방식").font(.headline)
+                Picker("클릭 방식", selection: $model.mode) {
+                    ForEach(ClickMode.allCases) { mode in Text(mode.title).tag(mode) }
+                }.pickerStyle(.segmented).disabled(model.busy)
+                ForEach([5000, 10000, 20000], id: \.self) { rate in
+                    Button("\(rate / 1000)k") { model.cps = String(rate) }.disabled(model.busy)
+                }
+            }
+            Text(model.targetCount == 2 ? "총 목표를 두 지점에 나눕니다. 총 10,000 CPS이면 지점당 약 5,000 CPS입니다." : "선택한 한 지점에 총 목표 속도를 적용합니다.")
+                .font(.caption).foregroundColor(.secondary)
+            Text(model.mode == .fast ? "고속: 짧은 묶음으로 전송해 타이머 대기를 줄입니다. 실제 수신 CPS로 비교하세요." : "기존 방식: 타이머가 깨어날 때 한 번씩 전송합니다. 같은 목표로 고속 모드와 비교할 수 있습니다.")
                 .font(.caption).foregroundColor(.secondary)
             HStack {
                 Button(model.busy ? "중지  ⌃⌥Space" : "3초 후 시작  ⌃⌥Space", action: model.toggle)
@@ -247,7 +261,7 @@ struct ContentView: View {
                     }
                 }
             }
-            Text("5,000 CPS는 목표입니다. 위 수치는 macOS에 전송한 요청이며, 실제 수신 속도는 테스트 웹사이트에서 확인하세요. 지연된 클릭은 몰아서 실행하지 않습니다.")
+            Text("20,000 CPS는 설정 상한입니다. 위 수치는 macOS에 전송한 요청이며, 실제 수신 속도는 테스트 웹사이트에서 확인하세요. 고속 모드는 한 번에 최대 32쌍만 처리하고 오래 밀린 요청은 버립니다.")
                 .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
             HStack {
                 Text("전역 단축키: \(model.hotkeysReady ? "준비됨" : "등록 실패")").font(.caption).foregroundColor(.secondary)

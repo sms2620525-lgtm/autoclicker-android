@@ -6,6 +6,8 @@ SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 APP_VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Info.plist)"
 xcrun swiftc -swift-version 5 Sources/RunSchedule.swift Tests/ScheduleTests.swift -o build/schedule-tests
 build/schedule-tests | tee dist/schedule-tests.txt
+xcrun swiftc -swift-version 5 -framework ApplicationServices Sources/RunSchedule.swift Sources/ClickEngine.swift Tests/EngineTests.swift -o build/engine-tests
+build/engine-tests | tee dist/engine-tests.txt
 for arch in arm64 x86_64; do
   xcrun swiftc -swift-version 5 -O -sdk "$SDK_PATH" -target "${arch}-apple-macos13.0" \
     -framework SwiftUI -framework AppKit -framework ApplicationServices -framework Carbon \
