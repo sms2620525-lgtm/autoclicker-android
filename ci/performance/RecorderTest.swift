@@ -23,7 +23,10 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate 
     var done = false
     let outputDirectory: String
     let appPID: pid_t
-    init(outputDirectory: String, appPID: pid_t) { self.outputDirectory = outputDirectory; self.appPID = appPID }
+    let pagePath: String
+    init(outputDirectory: String, appPID: pid_t, pagePath: String) {
+        self.outputDirectory = outputDirectory; self.appPID = appPID; self.pagePath = pagePath
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         print("Receiver launched: \(Bundle.main.bundleIdentifier ?? "no bundle")"); fflush(stdout)
@@ -38,7 +41,8 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate 
         window.contentView = web
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-        web.load(URLRequest(url: URL(string: "http://127.0.0.1:8765/")!))
+        let page = URL(fileURLWithPath: pagePath)
+        web.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent())
         DispatchQueue.main.asyncAfter(deadline: .now() + 27) { [weak self] in self?.fail("Test timed out without a completed received-input report.") }
     }
 
@@ -78,7 +82,7 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate 
           banner.textContent = 'LIVE OS INPUT • TapBench 1.2.0 • FAST • 10,000 CPS goal • GitHub macOS / WebKit';
           banner.style.cssText = 'padding:10px 14px;background:#16372b;color:#b8ffdc;font:13px monospace;text-align:center';
           document.body.prepend(banner);
-          localStorage.removeItem('tapbench-received-history-v1');
+          try { localStorage.removeItem('tapbench-received-history-v1'); } catch {}
           document.getElementById('target').value = '10000';
           document.getElementById('click-mode').value = 'fast';
           document.getElementById('arm').click();
@@ -139,7 +143,7 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate 
     }
 
     func collectResult() {
-        web.evaluateJavaScript("JSON.parse(localStorage.getItem('tapbench-received-history-v1') || '[]')[0] || null") { [weak self] result, error in
+        web.evaluateJavaScript("window.__tapbenchCIResult || null") { [weak self] result, error in
             guard let self = self, !self.done else { return }
             guard error == nil, let report = result as? [String: Any],
                   let count = report["receivedClicks"] as? NSNumber,
@@ -177,10 +181,10 @@ struct RecorderTest {
             print(result)
             return
         }
-        guard args.count == 3, let pid = Int32(args[2]) else { fatalError("Usage: RecorderTest OUTPUT_DIRECTORY APP_PID") }
+        guard args.count == 4, let pid = Int32(args[2]) else { fatalError("Usage: RecorderTest OUTPUT_DIRECTORY APP_PID PAGE_PATH") }
         let app = NSApplication.shared
         app.setActivationPolicy(.regular)
-        let delegate = TestDelegate(outputDirectory: args[1], appPID: pid)
+        let delegate = TestDelegate(outputDirectory: args[1], appPID: pid, pagePath: args[3])
         app.delegate = delegate
         withExtendedLifetime(delegate) { app.run() }
     }
