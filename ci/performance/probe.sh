@@ -7,18 +7,18 @@ import json, os, subprocess, time
 from pathlib import Path
 root=Path.cwd()
 summary=[]
-for tap, cps in [('hid',1000),('session',1000),('hid',10000),('session',10000)]:
-    name=f'{tap}-{cps}'
+for tap, cps, mode in [('hid',2000,'fast'),('hid',1000,'steady'),('hid',5000,'steady')]:
+    name=f'{tap}-{cps}-{mode}'
     folder=root/'performance-build'/name
     folder.mkdir()
-    env=dict(os.environ, TAPBENCH_PROBE_TAP=tap,TAPBENCH_PROBE_CPS=str(cps))
+    env=dict(os.environ, TAPBENCH_PROBE_TAP=tap,TAPBENCH_PROBE_CPS=str(cps),TAPBENCH_PROBE_MODE=mode)
     args=[str(root/'performance-build/Receiver.app/Contents/MacOS/Receiver'),str(folder),'0',str(root/'performance-build/receiver.html')]
     with (folder/'process.log').open('wb') as log:
         proc=subprocess.Popen(args,stdout=log,stderr=subprocess.STDOUT,env=env)
         try: code=proc.wait(timeout=35)
         except subprocess.TimeoutExpired:
             proc.kill(); proc.wait(); code=124
-    result={'case':name,'tap':tap,'requestedCPS':cps,'exitCode':code}
+    result={'case':name,'tap':tap,'requestedCPS':cps,'mode':mode,'exitCode':code}
     for key, filename in [('posted','posted.json'),('received','actual-received.json'),('native','native-delivery.json')]:
         path=folder/filename
         if path.exists(): result[key]=json.loads(path.read_text())

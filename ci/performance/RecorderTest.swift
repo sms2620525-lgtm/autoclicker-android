@@ -26,6 +26,7 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
     let pagePath: String
     let probeTap = ProcessInfo.processInfo.environment["TAPBENCH_PROBE_TAP"]
     let requestedCPS = Int(ProcessInfo.processInfo.environment["TAPBENCH_PROBE_CPS"] ?? "10000") ?? 10000
+    let requestedMode = ClickMode(rawValue: ProcessInfo.processInfo.environment["TAPBENCH_PROBE_MODE"] ?? "fast") ?? .fast
     var probeEngine: ClickEngine?
     var nativeDowns = 0
     var nativeUps = 0
@@ -104,6 +105,8 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
         })()
         """#
         let configuredScript = script.replacingOccurrences(of: "10000", with: String(requestedCPS))
+            .replacingOccurrences(of: "value = 'fast'", with: "value = '\(requestedMode.rawValue)'")
+            .replacingOccurrences(of: "10,000 CPS goal", with: "\(requestedCPS) CPS goal")
             .replacingOccurrences(of: "LIVE OS INPUT • TapBench 1.2.0", with: probeTap.map { "ENGINE DIAGNOSTIC • \($0)" } ?? "LIVE OS INPUT • TapBench 1.2.0")
         web.evaluateJavaScript(configuredScript) { [weak self] value, error in
             guard let self = self, !self.done else { return }
@@ -114,17 +117,17 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
             let display = CGDisplayBounds(CGMainDisplayID())
             guard points.allSatisfy({ display.contains($0) }) else { self.fail("Target outside the visible display."); return }
             writeJSON(["points": points.map { ["x": $0.x, "y": $0.y] },
-                       "appPID": self.appPID, "release": "macos-7-1", "appVersion": "1.2.0",
+                       "appPID": self.appPID, "release": self.probeTap == nil ? "macos-7-1" : "CI-engine-diagnostic", "appVersion": "1.2.0",
                        "appCommit": "68162c13e1979a899942d7a1df78a5fd63910364",
                        "webSourceCommit": "3042c733a0e501d0bfd79718fd3eac51a06f5d0b",
-                       "targetCPS": 10000, "mode": "fast", "seconds": 10,
-                       "note": "Unmodified released app. JavaScript arms UI only; received pointer pairs originate from macOS input."],
+                       "targetCPS": self.requestedCPS, "mode": self.requestedMode.rawValue, "seconds": 10,
+                       "note": self.probeTap == nil ? "Unmodified released app. JavaScript arms UI only; received pointer pairs originate from macOS input." : "CI-only diagnostic using the production scheduler and real macOS events. Not a released-app benchmark."],
                       to: self.outputDirectory + "/test-configuration.json")
             if let tapName = self.probeTap {
                 let tap: CGEventTapLocation = tapName == "session" ? .cgSessionEventTap : .cghidEventTap
                 let engine = ClickEngine(prepare: { ProbeOutput.make(points: $0, tap: tap) })
                 self.probeEngine = engine
-                guard engine.start(points: points, cps: self.requestedCPS, seconds: 10) else { self.fail("Probe engine could not start."); return }
+                guard engine.start(points: points, cps: self.requestedCPS, seconds: 10, mode: self.requestedMode) else { self.fail("Probe engine could not start."); return }
                 DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 11) {
                     let stats = engine.snapshot()
                     if let data = try? JSONEncoder().encode(stats) {
@@ -191,7 +194,7 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
               count.intValue > 0, report["completed"] as? Bool == true else { return }
         done = true
         writeJSON(report, to: outputDirectory + "/actual-received.json")
-        print("REAL INPUT RESULT: \(count) received clicks; average \(report["averageCPS"] ?? "?") CPS; target 10000 CPS.")
+        print("REAL INPUT RESULT: \(count) received clicks; average \(report["averageCPS"] ?? "?") CPS; target \(requestedCPS) CPS.")
         fflush(stdout)
         writeJSON(["mouseDown": nativeDowns, "mouseUp": nativeUps, "tap": probeTap ?? "released-app", "requestedCPS": requestedCPS],
                   to: outputDirectory + "/native-delivery.json")
