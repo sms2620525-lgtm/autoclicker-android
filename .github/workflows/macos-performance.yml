@@ -27,7 +27,11 @@ jobs:
           RELEASE_TAG: performance-${{ github.run_number }}-${{ github.run_attempt }}
         run: |
           if [ -d performance-output ] && [ -n "$(ls -A performance-output)" ]; then
-            gh release create "$RELEASE_TAG" performance-output/* \
+            assets=()
+            for file in performance-output/*; do
+              if [ -s "$file" ]; then assets+=("$file"); fi
+            done
+            gh release create "$RELEASE_TAG" "${assets[@]}" \
               --target "$GITHUB_SHA" \
               --title "TapBench actual Mac input test #${GITHUB_RUN_NUMBER}" \
               --notes-file ci/performance/README.md \

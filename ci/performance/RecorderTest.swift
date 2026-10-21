@@ -26,6 +26,7 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate 
     init(outputDirectory: String, appPID: pid_t) { self.outputDirectory = outputDirectory; self.appPID = appPID }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        print("Receiver launched: \(Bundle.main.bundleIdentifier ?? "no bundle")"); fflush(stdout)
         guard AXIsProcessTrusted() else { fail("Accessibility permission is not already granted on this runner."); return }
         guard let screen = NSScreen.main else { fail("No interactive display."); return }
         window = NSWindow(contentRect: screen.visibleFrame.insetBy(dx: 12, dy: 12),
@@ -42,12 +43,26 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate 
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        print("Receiver page loaded: \(webView.url?.absoluteString ?? "no URL")"); fflush(stdout)
         guard !started else { return }
         started = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.prepareTest() }
     }
 
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        fail("Page navigation failed: \(error.localizedDescription)")
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        fail("Page load failed: \(error.localizedDescription)")
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        fail("WebKit content process terminated.")
+    }
+
     func prepareTest() {
+        print("Preparing the real input test."); fflush(stdout)
         // This only arms the measurement UI and compacts layout for the runner display.
         // No pointer or click event is injected into the page by JavaScript.
         let script = #"""

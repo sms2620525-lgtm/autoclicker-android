@@ -1,10 +1,19 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-mkdir -p performance-output performance-build
+mkdir -p performance-output performance-build/Receiver.app/Contents/MacOS
 xcrun swiftc -parse-as-library -swift-version 5 -O -framework AppKit -framework WebKit -framework ApplicationServices \
-  ci/performance/RecorderTest.swift -o performance-build/RecorderTest
-performance-build/RecorderTest --preflight performance-output/permissions.json
+  ci/performance/RecorderTest.swift -o performance-build/Receiver.app/Contents/MacOS/Receiver
+python3 - <<'PY'
+import plistlib
+with open('performance-build/Receiver.app/Contents/Info.plist', 'wb') as f:
+    plistlib.dump({'CFBundleIdentifier':'dev.tapbench.ci.receiver', 'CFBundleName':'TapBench Test Receiver',
+                  'CFBundleExecutable':'Receiver', 'CFBundlePackageType':'APPL',
+                  'NSPrincipalClass':'NSApplication',
+                  'NSAppTransportSecurity':{'NSAllowsLocalNetworking':True}}, f)
+PY
+codesign --force --sign - performance-build/Receiver.app
+performance-build/Receiver.app/Contents/MacOS/Receiver --preflight performance-output/permissions.json
 python3 - <<'PY'
 import json
 p=json.load(open('performance-output/permissions.json'))
@@ -31,14 +40,27 @@ cleanup() {
   kill "$WEB_PID" 2>/dev/null || true
 }
 trap cleanup EXIT
+python3 - <<'PY'
+import time, urllib.request
+for attempt in range(20):
+    try:
+        with urllib.request.urlopen('http://127.0.0.1:8765/', timeout=1) as r:
+            assert r.status == 200
+        print('Local receiving page is ready')
+        break
+    except Exception:
+        if attempt == 19: raise
+        time.sleep(0.1)
+PY
 /usr/sbin/screencapture -v -V 32 -C -m performance-output/TapBench-1.2.0-real-mac-test.mov > performance-output/recording.log 2>&1 &
 RECORD_PID=$!
 performance-build/TapBench.app/Contents/MacOS/TapBench > performance-output/app.log 2>&1 &
 APP_PID=$!
 sleep 2
-performance-build/RecorderTest "$PWD/performance-output" "$APP_PID" | tee performance-output/test.log
+performance-build/Receiver.app/Contents/MacOS/Receiver "$PWD/performance-output" "$APP_PID" 2>&1 | tee performance-output/test.log
 wait "$RECORD_PID"
 RECORD_PID=''
+cp performance-build/http.log performance-output/http.log
 python3 - <<'PY'
 import json
 from pathlib import Path
