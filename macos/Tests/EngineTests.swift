@@ -81,6 +81,15 @@ struct EngineTests {
         let racingRun = racing.generation
         DispatchQueue.global().async { racing.tick(generation: racingRun); finished.signal() }
         check(entered.wait(timeout: .now() + 2) == .success, "output entered")
+        let snapshotReady = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            let snapshot = racing.snapshot()
+            precondition(snapshot.active && snapshot.postedPairs == 0,
+                         "in-flight output is not counted as completed")
+            snapshotReady.signal()
+        }
+        check(snapshotReady.wait(timeout: .now() + 0.5) == .success,
+              "UI snapshot remains responsive while OS output is blocked")
         DispatchQueue.global().async { stopping.signal(); racing.stop(); stopped.signal() }
         check(stopping.wait(timeout: .now() + 2) == .success, "stop requested during output")
         release.signal()

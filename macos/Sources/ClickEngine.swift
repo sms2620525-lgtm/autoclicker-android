@@ -24,6 +24,9 @@ final class ClickEngine {
     typealias PairOutput = (_ target: Int, _ time: UInt64, _ number: Int64) -> Void
     private let queue = DispatchQueue(label: "dev.tapbench.clicks", qos: .userInteractive)
     private let lock = NSLock()
+    // OS posting can block. Keep UI snapshots independent of that call, while
+    // stop still waits for the in-flight down/up pair before it returns.
+    private let outputLock = NSLock()
     private let now: () -> UInt64
     private let prepare: ([CGPoint]) -> PairOutput?
     private let usesTimer: Bool
@@ -111,22 +114,30 @@ final class ClickEngine {
         lock.unlock()
 
         for _ in 0..<count {
+            outputLock.lock()
             lock.lock()
-            guard stats.active, run == generation, let post = output else { lock.unlock(); return }
+            guard stats.active, run == generation, let post = output else {
+                lock.unlock(); outputLock.unlock(); return
+            }
             let time = now()
             guard time < current.end else {
                 stats.elapsedSeconds = Double(current.end - current.start) / 1e9
                 finishLocked("시간 완료")
                 lock.unlock()
+                outputLock.unlock()
                 return
             }
             let index = TargetOrder.index(after: stats.postedPairs, targetCount: stats.targets.count)
-            // Keep down/up together; release between pairs so stop need not wait for a batch.
-            post(index, time, Int64(stats.postedPairs + 1))
+            let number = Int64(stats.postedPairs + 1)
+            lock.unlock()
+            // Only the emission barrier spans the OS call. Snapshots never wait for it.
+            post(index, time, number)
+            lock.lock()
             stats.postedPairs += 1
             stats.targets[index].postedPairs += 1
             reservedPairs -= 1
             lock.unlock()
+            outputLock.unlock()
         }
     }
 
@@ -141,6 +152,8 @@ final class ClickEngine {
     }
 
     func stop(_ reason: String = "사용자 중지") {
+        outputLock.lock()
+        defer { outputLock.unlock() }
         lock.lock()
         defer { lock.unlock() }
         guard stats.active else { return }

@@ -25,8 +25,9 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
     let appPID: pid_t
     let pagePath: String
     let probeTap = ProcessInfo.processInfo.environment["TAPBENCH_PROBE_TAP"]
-    let requestedCPS = Int(ProcessInfo.processInfo.environment["TAPBENCH_PROBE_CPS"] ?? "10000") ?? 10000
-    let requestedMode = ClickMode(rawValue: ProcessInfo.processInfo.environment["TAPBENCH_PROBE_MODE"] ?? "fast") ?? .fast
+    let requestedCPS = Int(ProcessInfo.processInfo.environment["TAPBENCH_PROBE_CPS"] ?? String(ClickLimits.defaultCPS)) ?? ClickLimits.defaultCPS
+    let requestedMode = ClickMode(rawValue: ProcessInfo.processInfo.environment["TAPBENCH_PROBE_MODE"] ?? ClickLimits.defaultMode.rawValue) ?? ClickLimits.defaultMode
+    let appVersion = ProcessInfo.processInfo.environment["TAPBENCH_TEST_VERSION"] ?? "1.2.0"
     var probeEngine: ClickEngine?
     var nativeDowns = 0
     var nativeUps = 0
@@ -106,8 +107,9 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
         """#
         let configuredScript = script.replacingOccurrences(of: "10000", with: String(requestedCPS))
             .replacingOccurrences(of: "value = 'fast'", with: "value = '\(requestedMode.rawValue)'")
+            .replacingOccurrences(of: "• FAST •", with: "• \(requestedMode.rawValue.uppercased()) •")
             .replacingOccurrences(of: "10,000 CPS goal", with: "\(requestedCPS) CPS goal")
-            .replacingOccurrences(of: "LIVE OS INPUT • TapBench 1.2.0", with: probeTap.map { "ENGINE DIAGNOSTIC • \($0)" } ?? "LIVE OS INPUT • TapBench 1.2.0")
+            .replacingOccurrences(of: "LIVE OS INPUT • TapBench 1.2.0", with: probeTap.map { "ENGINE DIAGNOSTIC • \($0)" } ?? "LIVE OS INPUT • TapBench \(appVersion)")
         web.evaluateJavaScript(configuredScript) { [weak self] value, error in
             guard let self = self, !self.done else { return }
             guard error == nil, let positions = value as? [[String: NSNumber]], positions.count == 2 else {
@@ -117,11 +119,11 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
             let display = CGDisplayBounds(CGMainDisplayID())
             guard points.allSatisfy({ display.contains($0) }) else { self.fail("Target outside the visible display."); return }
             writeJSON(["points": points.map { ["x": $0.x, "y": $0.y] },
-                       "appPID": self.appPID, "release": self.probeTap == nil ? "macos-7-1" : "CI-engine-diagnostic", "appVersion": "1.2.0",
-                       "appCommit": "68162c13e1979a899942d7a1df78a5fd63910364",
+                       "appPID": self.appPID, "release": self.probeTap == nil ? "built-from-workflow-commit" : "CI-engine-diagnostic", "appVersion": self.appVersion,
+                       "appCommit": ProcessInfo.processInfo.environment["GITHUB_SHA"] ?? "local",
                        "webSourceCommit": "3042c733a0e501d0bfd79718fd3eac51a06f5d0b",
                        "targetCPS": self.requestedCPS, "mode": self.requestedMode.rawValue, "seconds": 10,
-                       "note": self.probeTap == nil ? "Unmodified released app. JavaScript arms UI only; received pointer pairs originate from macOS input." : "CI-only diagnostic using the production scheduler and real macOS events. Not a released-app benchmark."],
+                       "note": self.probeTap == nil ? "Production app built and packaged from this workflow commit. JavaScript arms UI only; received pointer pairs originate from macOS input." : "CI-only diagnostic using the production scheduler and real macOS events. Not a released-app benchmark."],
                       to: self.outputDirectory + "/test-configuration.json")
             if let tapName = self.probeTap {
                 let tap: CGEventTapLocation = tapName == "session" ? .cgSessionEventTap : .cghidEventTap

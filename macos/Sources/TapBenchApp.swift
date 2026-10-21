@@ -7,7 +7,7 @@ private let testURL = URL(string: "https://tapbench-click-lab.la1239237698347673
 
 final class AppModel: ObservableObject {
     @Published var cps = String(ClickLimits.defaultCPS)
-    @Published var mode: ClickMode = .fast
+    @Published var mode: ClickMode = ClickLimits.defaultMode
     @Published var seconds = "10"
     @Published var targetCount = 2
     @Published var targets: [CGPoint?] = [nil, nil]
@@ -152,7 +152,7 @@ final class AppModel: ObservableObject {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         struct Report: Encodable {
             let schema = "tapbench-macos-v3"
-            let appVersion = "1.2.0"
+            let appVersion = "1.2.1"
             let createdAt: Date
             let system: String
             let stats: RunStats
@@ -181,7 +181,7 @@ struct ContentView: View {
                 Image(systemName: "cursorarrow.click.2").font(.system(size: 32)).foregroundColor(.mint)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("TapBench").font(.system(size: 30, weight: .bold, design: .rounded))
-                    Text("macOS 오토클릭커 · 1.2.0").foregroundColor(.secondary)
+                    Text("macOS 오토클릭커 · 1.2.1").foregroundColor(.secondary)
                 }
                 Spacer()
                 Text("MAC").font(.caption.monospaced()).padding(8).background(.white.opacity(0.08)).cornerRadius(8)
@@ -233,13 +233,13 @@ struct ContentView: View {
                 Picker("클릭 방식", selection: $model.mode) {
                     ForEach(ClickMode.allCases) { mode in Text(mode.title).tag(mode) }
                 }.pickerStyle(.segmented).disabled(model.busy)
-                ForEach([5000, 10000, 20000], id: \.self) { rate in
-                    Button("\(rate / 1000)k") { model.cps = String(rate) }.disabled(model.busy)
+                ForEach([500, 1000, 5000], id: \.self) { rate in
+                    Button(rate >= 1000 ? "\(rate / 1000)k" : String(rate)) { model.cps = String(rate) }.disabled(model.busy)
                 }
             }
-            Text(model.targetCount == 2 ? "총 목표를 두 지점에 나눕니다. 총 10,000 CPS이면 지점당 약 5,000 CPS입니다." : "선택한 한 지점에 총 목표 속도를 적용합니다.")
+            Text(model.targetCount == 2 ? "총 목표를 두 지점에 나눕니다. 목표가 너무 높으면 실제 수신 속도가 떨어질 수 있습니다." : "선택한 한 지점에 총 목표 속도를 적용합니다.")
                 .font(.caption).foregroundColor(.secondary)
-            Text(model.mode == .fast ? "고속: 짧은 묶음으로 전송해 타이머 대기를 줄입니다. 실제 수신 CPS로 비교하세요." : "기존 방식: 타이머가 깨어날 때 한 번씩 전송합니다. 같은 목표로 고속 모드와 비교할 수 있습니다.")
+            Text(model.mode == .fast ? "고속: 짧은 묶음으로 전송합니다. 먼저 1,000 CPS에서 실제 수신 속도를 확인하세요." : "기존 방식: 타이머가 깨어날 때 한 번씩 전송하며 밀린 클릭은 건너뜁니다.")
                 .font(.caption).foregroundColor(.secondary)
             HStack {
                 Button(model.busy ? "중지  ⌃⌥Space" : "3초 후 시작  ⌃⌥Space", action: model.toggle)

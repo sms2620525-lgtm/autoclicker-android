@@ -2,7 +2,8 @@ import Foundation
 
 enum ClickLimits {
     static let maxCPS = 20_000
-    static let defaultCPS = 10_000
+    static let defaultCPS = 1_000
+    static let defaultMode: ClickMode = .fast
     static let maxBatch = 32
 }
 

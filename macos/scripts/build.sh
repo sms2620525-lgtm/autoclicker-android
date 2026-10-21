@@ -33,5 +33,5 @@ ditto -c -k --keepParent build/TapBench.app "dist/TapBench-${APP_VERSION}-univer
   sw_vers
   file build/TapBench.app/Contents/MacOS/TapBench
   codesign -dv build/TapBench.app 2>&1
-  echo 'Packaging and logic tests verified. Actual received CPS requires Accessibility permission and a browser test on the user Mac.'
+  echo 'Packaging and logic tests verified. Actual received CPS is measured separately by the macOS actual input video workflow; results depend on the Mac, target app and recording load.'
 } > dist/build-verification.txt

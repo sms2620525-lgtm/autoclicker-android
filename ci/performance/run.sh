@@ -2,15 +2,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 bash ci/performance/prepare.sh
-gh release download macos-7-1 --pattern 'TapBench-1.2.0-universal.zip' --dir performance-build
-python3 - <<'PY'
-import hashlib
-from pathlib import Path
-p=Path('performance-build/TapBench-1.2.0-universal.zip')
-assert hashlib.sha256(p.read_bytes()).hexdigest()=='40b671befba07460c699d05ac0a4d890acf5c369f6b98e4aeedc3264064b300f'
-print('Released app ZIP SHA-256 verified')
-PY
-ditto -x -k performance-build/TapBench-1.2.0-universal.zip performance-build
+bash macos/scripts/build.sh
+APP_VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' macos/Info.plist)"
+export TAPBENCH_TEST_VERSION="$APP_VERSION"
+ditto macos/build/TapBench.app performance-build/TapBench.app
+cp macos/dist/* performance-output/
 codesign --verify --deep --strict performance-build/TapBench.app
 APP_PID=''
 RECORD_PID=''
@@ -19,7 +15,7 @@ cleanup() {
   if [ -n "$RECORD_PID" ]; then kill -INT "$RECORD_PID" 2>/dev/null || true; fi
 }
 trap cleanup EXIT
-/usr/sbin/screencapture -v -V 45 -C -m performance-output/TapBench-1.2.0-real-mac-test.mov > performance-output/recording.log 2>&1 &
+/usr/sbin/screencapture -v -V 45 -C -m "performance-output/TapBench-${APP_VERSION}-real-mac-test.mov" > performance-output/recording.log 2>&1 &
 RECORD_PID=$!
 performance-build/TapBench.app/Contents/MacOS/TapBench > performance-output/app.log 2>&1 &
 APP_PID=$!
@@ -40,7 +36,8 @@ except subprocess.TimeoutExpired as e:
 print(output.decode(errors='replace'))
 sys.exit(code)
 PY
-wait "$RECORD_PID"
+kill -INT "$RECORD_PID" 2>/dev/null || true
+wait "$RECORD_PID" || true
 RECORD_PID=''
 python3 - <<'PY'
 import json
@@ -50,6 +47,7 @@ r=json.load(open(p/'actual-received.json'))
 assert r['completed'] and r['receivedClicks'] > 0
 assert sum(t['receivedClicks'] for t in r['receivedByTarget']) == r['receivedClicks']
 assert all(t['receivedClicks'] > 0 for t in r['receivedByTarget'])
-assert (p/'TapBench-1.2.0-real-mac-test.mov').stat().st_size > 10000
+videos=list(p.glob('TapBench-*-real-mac-test.mov'))
+assert len(videos)==1 and videos[0].stat().st_size > 10000
 print('Actual input, both targets, complete timing window, and video file verified.')
 PY

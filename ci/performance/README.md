@@ -1,9 +1,11 @@
-# TapBench 1.2.0 — real Mac input recording
+# TapBench — actual Mac input recording and tested DMG
 
-This workflow runs the unchanged, SHA-256-verified app from `macos-7-1` on a GitHub-hosted macOS 15 VM. It selects two targets using the app's global hotkeys and starts the app at its default fast mode / total goal 10,000 CPS / 10 seconds.
+The video workflow builds the production Swift app at the workflow commit, runs the native tests, produces the universal DMG/ZIP, then runs that same app on a GitHub-hosted macOS 15 VM. It selects two targets using the app's global hotkeys and starts the app at its default settings for 10 seconds. The release includes the tested DMG, ZIP, checksums and native test results.
 
-The receiving page uses TapBench web source `3042c733a0e501d0bfd79718fd3eac51a06f5d0b`, with the same measuring code bundled inline in a local file opened by WKWebView. A read-only getter exposes the report already produced by that code. The harness changes only layout and arms the measurement. It does not generate page pointer events or increment counts. All measured clicks arrive through the released app and macOS input dispatch. The page counts trusted primary pointer down/up pairs.
+The receiving page uses TapBench web source `3042c733a0e501d0bfd79718fd3eac51a06f5d0b`, with the same measuring code bundled inline in a local file opened by WKWebView. A read-only getter exposes its completed report. The harness compacts layout and arms measurement; it never generates page pointer events or increments counts. All measured clicks arrive through the production app and macOS input dispatch. The page counts trusted primary pointer down/up pairs.
 
-`actual-received.json` is the browser's measured report. `test-configuration.json` records target coordinates and release identity. The MOV is a live screen recording with no speed adjustment. Recording overhead, the hosted VM and WebKit affect the result; it is not a claim about every Mac or browser. If `blocked.json` or permission failure is present, the test did not complete and no successful performance claim should be made.
+`actual-received.json` is the browser's measured report. `test-configuration.json` records target coordinates, settings and build identity. The MOV is a live screen recording with no speed adjustment. Recording overhead, the hosted VM and WebKit affect the result; it is not a claim about every Mac or browser. If `blocked.json` or permission failure is present, no successful performance claim should be made.
 
-The workflow only uses permissions already granted on the runner image. It does not modify TCC, disable security protections, or add recording features to the shipped app.
+The separate diagnostic workflow uses the production scheduler with a CI-only event output to compare pacing and event taps. Its results are explicitly engine diagnostics, not released-app benchmarks. Native delivery counts cover launch through receipt of the completed web report, while browser CPS uses a 10-second handler-time window.
+
+The workflows only use permissions already granted on the runner image. They do not modify TCC or add recording features to the shipped app. The receiver keeps the result visible for five seconds and exits from a background queue, avoiding a cross-app activation wait after input saturation.
