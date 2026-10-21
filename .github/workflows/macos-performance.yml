@@ -1,0 +1,35 @@
+name: macOS actual input video
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  record-real-app:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Run released app, measure received pointer pairs and record screen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: bash ci/performance/run.sh
+      - name: Publish recording and measured results
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: performance-${{ github.run_number }}-${{ github.run_attempt }}
+        run: |
+          if [ -d performance-output ] && [ -n "$(ls -A performance-output)" ]; then
+            gh release create "$RELEASE_TAG" performance-output/* \
+              --target "$GITHUB_SHA" \
+              --title "TapBench actual Mac input test #${GITHUB_RUN_NUMBER}" \
+              --notes-file ci/performance/README.md \
+              --prerelease
+          fi
