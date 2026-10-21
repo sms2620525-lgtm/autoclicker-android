@@ -20,6 +20,7 @@ app=app.replace("import { Benchmark, PointerGate } from './benchmark.mjs';", '',
 script=(web/'benchmark.mjs').read_text()+'\n'+app
 # This getter only exposes the report already produced by the unchanged measuring code.
 script+="\nObject.defineProperty(window, '__tapbenchCIResult', {get: () => savedResult});\n"
+script+="\nlet reportSent = false; setInterval(() => { if (savedResult && !reportSent) { reportSent = true; window.webkit.messageHandlers.measurement.postMessage(savedResult); } }, 200);\n"
 html=html.replace('<script type="module" src="/app.mjs"></script>', '<script type="module">'+script+'</script>')
 Path('performance-build/receiver.html').write_text(html)
 PY
@@ -48,12 +49,27 @@ cleanup() {
   if [ -n "$RECORD_PID" ]; then kill -INT "$RECORD_PID" 2>/dev/null || true; fi
 }
 trap cleanup EXIT
-/usr/sbin/screencapture -v -V 32 -C -m performance-output/TapBench-1.2.0-real-mac-test.mov > performance-output/recording.log 2>&1 &
+/usr/sbin/screencapture -v -V 45 -C -m performance-output/TapBench-1.2.0-real-mac-test.mov > performance-output/recording.log 2>&1 &
 RECORD_PID=$!
 performance-build/TapBench.app/Contents/MacOS/TapBench > performance-output/app.log 2>&1 &
 APP_PID=$!
-sleep 2
-performance-build/Receiver.app/Contents/MacOS/Receiver "$PWD/performance-output" "$APP_PID" "$PWD/performance-build/receiver.html" 2>&1 | tee performance-output/test.log
+sleep 5
+python3 - "$APP_PID" <<'PY'
+import subprocess, sys
+from pathlib import Path
+p=Path.cwd()
+args=[str(p/'performance-build/Receiver.app/Contents/MacOS/Receiver'),str(p/'performance-output'),sys.argv[1],str(p/'performance-build/receiver.html')]
+try:
+    r=subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60)
+    output=r.stdout
+    code=r.returncode
+except subprocess.TimeoutExpired as e:
+    output=(e.stdout or b'')+b'\nReceiver process timeout.\n'
+    code=1
+(p/'performance-output/test.log').write_bytes(output)
+print(output.decode(errors='replace'))
+sys.exit(code)
+PY
 wait "$RECORD_PID"
 RECORD_PID=''
 python3 - <<'PY'

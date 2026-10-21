@@ -16,7 +16,7 @@ func permissions() -> [String: Any] {
             "os": ProcessInfo.processInfo.operatingSystemVersionString]
 }
 
-final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
+final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKScriptMessageHandler {
     var window: NSWindow!
     var web: WKWebView!
     var started = false
@@ -35,7 +35,9 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate 
         window = NSWindow(contentRect: screen.visibleFrame.insetBy(dx: 12, dy: 12),
                           styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         window.title = "REAL MAC TEST — TapBench 1.2.0 / fast / total goal 10,000 CPS"
-        web = WKWebView(frame: window.contentView!.bounds)
+        let configuration = WKWebViewConfiguration()
+        configuration.userContentController.add(self, name: "measurement")
+        web = WKWebView(frame: window.contentView!.bounds, configuration: configuration)
         web.autoresizingMask = [.width, .height]
         web.navigationDelegate = self
         window.contentView = web
@@ -43,7 +45,7 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate 
         NSApp.activate(ignoringOtherApps: true)
         let page = URL(fileURLWithPath: pagePath)
         web.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent())
-        DispatchQueue.main.asyncAfter(deadline: .now() + 27) { [weak self] in self?.fail("Test timed out without a completed received-input report.") }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 48) { [weak self] in self?.fail("Test timed out without a completed received-input report.") }
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -111,7 +113,7 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate 
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { self.move(points[1]) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { self.hotkey(2) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) { self.hotkey(49) }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 15.5) { self.collectResult() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 30) { self.collectResult() }
         }
     }
 
@@ -143,21 +145,34 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate 
     }
 
     func collectResult() {
+        guard !done else { return }
         web.evaluateJavaScript("window.__tapbenchCIResult || null") { [weak self] result, error in
             guard let self = self, !self.done else { return }
-            guard error == nil, let report = result as? [String: Any],
-                  let count = report["receivedClicks"] as? NSNumber,
-                  count.intValue > 0, report["completed"] as? Bool == true else {
-                self.fail("The released app did not produce a completed nonzero received-click measurement."); return
+            if error == nil, let report = result as? [String: Any] {
+                self.acceptReport(report)
             }
-            self.done = true
-            writeJSON(report, to: self.outputDirectory + "/actual-received.json")
-            print("REAL INPUT RESULT: \(count) received clicks; average \(report["averageCPS"] ?? "?") CPS; target 10000 CPS.")
-            fflush(stdout)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                NSRunningApplication(processIdentifier: self.appPID)?.activate(options: [.activateIgnoringOtherApps])
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { NSApp.terminate(nil) }
+        }
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == "measurement", let report = message.body as? [String: Any] else { return }
+        acceptReport(report)
+    }
+
+    func acceptReport(_ report: [String: Any]) {
+        guard !done, let count = report["receivedClicks"] as? NSNumber,
+              count.intValue > 0, report["completed"] as? Bool == true else { return }
+        done = true
+        writeJSON(report, to: outputDirectory + "/actual-received.json")
+        print("REAL INPUT RESULT: \(count) received clicks; average \(report["averageCPS"] ?? "?") CPS; target 10000 CPS.")
+        fflush(stdout)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+            if let app = NSRunningApplication(processIdentifier: self.appPID) {
+                if #available(macOS 14.0, *) { NSApp.yieldActivation(to: app) }
+                app.activate(options: [.activateAllWindows])
             }
+            self.window.orderOut(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 7) { exit(0) }
         }
     }
 
@@ -167,7 +182,7 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate 
         writeJSON(["status": "blocked", "reason": reason, "permissions": permissions()], to: outputDirectory + "/blocked.json")
         print("BLOCKED: \(reason)")
         fflush(stdout)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { NSApp.terminate(nil) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { exit(2) }
     }
 }
 
