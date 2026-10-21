@@ -24,6 +24,12 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
     let outputDirectory: String
     let appPID: pid_t
     let pagePath: String
+    let probeTap = ProcessInfo.processInfo.environment["TAPBENCH_PROBE_TAP"]
+    let requestedCPS = Int(ProcessInfo.processInfo.environment["TAPBENCH_PROBE_CPS"] ?? "10000") ?? 10000
+    var probeEngine: ClickEngine?
+    var nativeDowns = 0
+    var nativeUps = 0
+    var eventMonitor: Any?
     init(outputDirectory: String, appPID: pid_t, pagePath: String) {
         self.outputDirectory = outputDirectory; self.appPID = appPID; self.pagePath = pagePath
     }
@@ -34,7 +40,11 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
         guard let screen = NSScreen.main else { fail("No interactive display."); return }
         window = NSWindow(contentRect: screen.visibleFrame.insetBy(dx: 12, dy: 12),
                           styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
-        window.title = "REAL MAC TEST — TapBench 1.2.0 / fast / total goal 10,000 CPS"
+        window.title = probeTap == nil ? "REAL MAC TEST — TapBench released app" : "ENGINE DIAGNOSTIC — \(probeTap!) / \(requestedCPS) CPS"
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseUp]) { [weak self] event in
+            if event.type == .leftMouseDown { self?.nativeDowns += 1 } else { self?.nativeUps += 1 }
+            return event
+        }
         let configuration = WKWebViewConfiguration()
         configuration.userContentController.add(self, name: "measurement")
         web = WKWebView(frame: window.contentView!.bounds, configuration: configuration)
@@ -93,7 +103,9 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
           });
         })()
         """#
-        web.evaluateJavaScript(script) { [weak self] value, error in
+        let configuredScript = script.replacingOccurrences(of: "10000", with: String(requestedCPS))
+            .replacingOccurrences(of: "LIVE OS INPUT • TapBench 1.2.0", with: probeTap.map { "ENGINE DIAGNOSTIC • \($0)" } ?? "LIVE OS INPUT • TapBench 1.2.0")
+        web.evaluateJavaScript(configuredScript) { [weak self] value, error in
             guard let self = self, !self.done else { return }
             guard error == nil, let positions = value as? [[String: NSNumber]], positions.count == 2 else {
                 self.fail("Page setup failed: \(error?.localizedDescription ?? "missing targets")"); return
@@ -108,6 +120,21 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
                        "targetCPS": 10000, "mode": "fast", "seconds": 10,
                        "note": "Unmodified released app. JavaScript arms UI only; received pointer pairs originate from macOS input."],
                       to: self.outputDirectory + "/test-configuration.json")
+            if let tapName = self.probeTap {
+                let tap: CGEventTapLocation = tapName == "session" ? .cgSessionEventTap : .cghidEventTap
+                let engine = ClickEngine(prepare: { ProbeOutput.make(points: $0, tap: tap) })
+                self.probeEngine = engine
+                guard engine.start(points: points, cps: self.requestedCPS, seconds: 10) else { self.fail("Probe engine could not start."); return }
+                DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 11) {
+                    let stats = engine.snapshot()
+                    if let data = try? JSONEncoder().encode(stats) {
+                        try? data.write(to: URL(fileURLWithPath: self.outputDirectory + "/posted.json"), options: .atomic)
+                    }
+                    print("POSTED: \(stats.postedPairs), skipped: \(stats.skippedSlots), active: \(stats.active), seconds: \(stats.elapsedSeconds)")
+                    fflush(stdout)
+                }
+                return
+            }
             self.move(points[0])
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { self.hotkey(1) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { self.move(points[1]) }
@@ -166,14 +193,12 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
         writeJSON(report, to: outputDirectory + "/actual-received.json")
         print("REAL INPUT RESULT: \(count) received clicks; average \(report["averageCPS"] ?? "?") CPS; target 10000 CPS.")
         fflush(stdout)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-            if let app = NSRunningApplication(processIdentifier: self.appPID) {
-                if #available(macOS 14.0, *) { NSApp.yieldActivation(to: app) }
-                app.activate(options: [.activateAllWindows])
-            }
-            self.window.orderOut(nil)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 7) { exit(0) }
-        }
+        writeJSON(["mouseDown": nativeDowns, "mouseUp": nativeUps, "tap": probeTap ?? "released-app", "requestedCPS": requestedCPS],
+                  to: outputDirectory + "/native-delivery.json")
+        // Avoid a synchronous cross-app activation call while macOS drains input.
+        // Keep the completed result visible, then exit independently of the main queue.
+        DispatchQueue.global().asyncAfter(deadline: .now() + 5) { exit(0) }
+
     }
 
     func fail(_ reason: String) {

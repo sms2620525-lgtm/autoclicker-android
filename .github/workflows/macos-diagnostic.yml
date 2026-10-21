@@ -1,0 +1,34 @@
+name: macOS input pipeline diagnostic
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  compare-input-taps:
+    runs-on: macos-15
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Compare production scheduler with HID and session event posting
+        run: bash ci/performance/probe.sh
+      - name: Publish actual posted and received measurements
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: diagnostic-${{ github.run_number }}-${{ github.run_attempt }}
+        run: |
+          assets=()
+          for file in performance-output/*; do
+            if [ -s "$file" ]; then assets+=("$file"); fi
+          done
+          if [ ${#assets[@]} -gt 0 ]; then
+            gh release create "$RELEASE_TAG" "${assets[@]}" --target "$GITHUB_SHA" \
+              --title "TapBench input pipeline diagnostic #${GITHUB_RUN_NUMBER}" \
+              --notes "CI-only engine diagnostic. Uses the production scheduler and real macOS mouse events. Compares requested, posted and trusted browser-received pairs. This is not a released-app benchmark. Native delivery counts cover launch through receipt of the completed web report." --prerelease
+          fi

@@ -1,0 +1,32 @@
+#!/bin/bash
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+bash ci/performance/prepare.sh
+python3 - <<'PY'
+import json, os, subprocess, time
+from pathlib import Path
+root=Path.cwd()
+summary=[]
+for tap, cps in [('hid',1000),('session',1000),('hid',10000),('session',10000)]:
+    name=f'{tap}-{cps}'
+    folder=root/'performance-build'/name
+    folder.mkdir()
+    env=dict(os.environ, TAPBENCH_PROBE_TAP=tap,TAPBENCH_PROBE_CPS=str(cps))
+    args=[str(root/'performance-build/Receiver.app/Contents/MacOS/Receiver'),str(folder),'0',str(root/'performance-build/receiver.html')]
+    with (folder/'process.log').open('wb') as log:
+        proc=subprocess.Popen(args,stdout=log,stderr=subprocess.STDOUT,env=env)
+        try: code=proc.wait(timeout=35)
+        except subprocess.TimeoutExpired:
+            proc.kill(); proc.wait(); code=124
+    result={'case':name,'tap':tap,'requestedCPS':cps,'exitCode':code}
+    for key, filename in [('posted','posted.json'),('received','actual-received.json'),('native','native-delivery.json')]:
+        path=folder/filename
+        if path.exists(): result[key]=json.loads(path.read_text())
+    for path in folder.iterdir():
+        if path.is_file(): (root/'performance-output'/f'{name}-{path.name}').write_bytes(path.read_bytes())
+    summary.append(result)
+    (root/'performance-output'/'diagnostic-summary.json').write_text(json.dumps(summary,indent=2))
+    print(json.dumps(result),flush=True)
+    time.sleep(2)
+assert all('posted' in r and 'received' in r and r['received']['completed'] for r in summary), 'At least one diagnostic did not complete; see partial results.'
+PY
