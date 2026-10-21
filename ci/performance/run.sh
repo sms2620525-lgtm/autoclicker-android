@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 mkdir -p performance-output performance-build
-xcrun swiftc -swift-version 5 -O -framework AppKit -framework WebKit -framework ApplicationServices \
+xcrun swiftc -parse-as-library -swift-version 5 -O -framework AppKit -framework WebKit -framework ApplicationServices \
   ci/performance/RecorderTest.swift -o performance-build/RecorderTest
 performance-build/RecorderTest --preflight performance-output/permissions.json
 python3 - <<'PY'
