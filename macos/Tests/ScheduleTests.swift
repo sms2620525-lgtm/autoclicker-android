@@ -33,6 +33,7 @@ struct ScheduleTests {
         check(!slow.takeSlot(at: 2_000_000_000), "one CPS deadline")
         check((0..<6).map { TargetOrder.index(after: UInt64($0), targetCount: 2) } == [0, 1, 0, 1, 0, 1], "two points alternate")
         check((0..<6).allSatisfy { TargetOrder.index(after: UInt64($0), targetCount: 1) == 0 }, "single point remains supported")
+        check((0..<9).map { TargetOrder.index(after: UInt64($0), targetCount: 3) } == [0, 1, 2, 0, 1, 2, 0, 1, 2], "three targets rotate in order")
         var late = RunSchedule(cps: 5000, seconds: 1, start: 0)
         var routed: [Int] = []
         let times: [UInt64] = [0, 400_000, 1_200_000, 1_200_000, 1_600_000]
@@ -56,7 +57,7 @@ struct ScheduleTests {
         check(fast.skipped == 958, "old backlog is dropped and accounted")
         check(fast.takeBatch(at: 100_000_000, limit: 32) == 0, "dropped backlog cannot return")
         check(fast.takeBatch(at: 1_000_000_000, limit: 32) == 0, "fast mode deadline is exclusive")
-        for rate in [1, 7, 3333, 5000, 10_000, 20_000] {
+        for rate in [1, 7, 3333, 5000, 10_000, 20_000, 40_000] {
             var exact = RunSchedule(cps: rate, seconds: 1, start: 0)
             var count = 0
             for t in stride(from: UInt64(0), to: UInt64(1_000_000_000), by: 10_000) {
@@ -65,9 +66,9 @@ struct ScheduleTests {
             check(count == rate, "integer budget is exact at \(rate) CPS, including non-divisors")
             check(exact.skipped == 0, "no backlog lost with a sufficiently frequent clock at \(rate)")
         }
-        var maximum = RunSchedule(cps: 20_000, seconds: 3600, start: 0)
+        var maximum = RunSchedule(cps: 40_000, seconds: 3600, start: 0)
         check(maximum.takeBatch(at: 3_599_999_999_999, limit: 32) == 32, "maximum duration arithmetic does not overflow")
-        check(maximum.nextSlot == 72_000_000, "maximum run has exactly 72 million allowed slots")
+        check(maximum.nextSlot == 144_000_000, "maximum run has exactly 144 million allowed slots")
         check(ClickMode.fast.timerInterval(cps: 10_000) == 500_000, "fast mode reduces timer wakeups")
         check(ClickMode.fast.timerInterval(cps: 1) == 1_000_000_000, "low rates do not wake unnecessarily")
         check(ClickMode.steady.timerInterval(cps: 5000) == 200_000, "legacy mode keeps its timer interval")

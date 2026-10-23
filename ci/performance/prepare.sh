@@ -2,6 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 mkdir -p performance-output performance-build/Receiver.app/Contents/MacOS
+node --test ci/performance/tests/benchmark.test.mjs | tee performance-output/web-tests.txt
 xcrun swiftc -parse-as-library -swift-version 5 -O -framework AppKit -framework WebKit -framework ApplicationServices \
   macos/Sources/RunSchedule.swift macos/Sources/ClickEngine.swift ci/performance/ProbeOutput.swift ci/performance/RecorderTest.swift -o performance-build/Receiver.app/Contents/MacOS/Receiver
 python3 - <<'PY'

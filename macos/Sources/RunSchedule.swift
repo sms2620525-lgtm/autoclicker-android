@@ -1,8 +1,9 @@
 import Foundation
 
 enum ClickLimits {
-    static let maxCPS = 20_000
-    static let defaultCPS = 1_000
+    static let maxCPS = 40_000
+    static let maxTargets = 3
+    static let defaultCPS = 40_000
     static let defaultMode: ClickMode = .fast
     static let maxBatch = 32
 }
@@ -43,7 +44,7 @@ struct RunSchedule {
         precondition((1...ClickLimits.maxBatch).contains(limit))
         guard now >= start && now < end else { return 0 }
         // Integer rate arithmetic avoids accumulating a rounded interval error.
-        // Bounds (20,000 CPS for 3,600 s) keep this multiplication within UInt64.
+        // Bounds (40,000 CPS for 3,600 s) keep this multiplication within UInt64.
         let due = (now - start) * cps / 1_000_000_000 + 1
         guard due > nextSlot else { return 0 }
         let available = due - nextSlot
@@ -57,7 +58,7 @@ struct RunSchedule {
 /// Advance by clicks actually posted so delayed callbacks cannot starve a target.
 enum TargetOrder {
     static func index(after postedPairs: UInt64, targetCount: Int) -> Int {
-        precondition((1...2).contains(targetCount))
+        precondition((1...ClickLimits.maxTargets).contains(targetCount))
         return Int(postedPairs % UInt64(targetCount))
     }
 }

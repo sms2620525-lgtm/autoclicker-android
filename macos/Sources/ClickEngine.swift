@@ -77,7 +77,7 @@ final class ClickEngine {
 
     func start(points: [CGPoint], cps: Int, seconds: Int, mode: ClickMode = .fast) -> Bool {
         guard (1...ClickLimits.maxCPS).contains(cps), (1...3600).contains(seconds),
-              (1...2).contains(points.count), points.allSatisfy({ $0.x.isFinite && $0.y.isFinite }),
+              (1...ClickLimits.maxTargets).contains(points.count), points.allSatisfy({ $0.x.isFinite && $0.y.isFinite }),
               let prepared = prepare(points) else { return false }
         lock.lock()
         defer { lock.unlock() }

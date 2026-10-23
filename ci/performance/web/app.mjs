@@ -21,7 +21,7 @@ let storageAvailable = true;
 
 try {
   const stored = JSON.parse(localStorage.getItem(storageKey) || '[]');
-  if (Array.isArray(stored)) history = stored.filter(r => ['tapbench-web-v1', 'tapbench-web-v2', 'tapbench-web-v3'].includes(r?.schema) && Number.isFinite(r.averageCPS) && Number.isInteger(r.receivedClicks) && Number.isFinite(r.measuredSeconds) && typeof r.createdAt === 'string').slice(0, 8);
+  if (Array.isArray(stored)) history = stored.filter(r => ['tapbench-web-v1', 'tapbench-web-v2', 'tapbench-web-v3', 'tapbench-web-v4'].includes(r?.schema) && Number.isFinite(r.averageCPS) && Number.isInteger(r.receivedClicks) && Number.isFinite(r.measuredSeconds) && typeof r.createdAt === 'string').slice(0, 8);
 } catch { storageAvailable = false; }
 
 function saveHistory() {
@@ -126,9 +126,9 @@ function render() {
     $('export-json').disabled = !engine.result;
     $('arm').innerHTML = (state === 'completed' || state === 'interrupted') ? '다시 측정 <span>↻</span>' : '측정 준비 <span>→</span>';
     const texts = {
-      idle: ['대기 중', '두 지점의 속도를 확인하세요', '‘측정 준비’를 누르면 두 영역이 활성화됩니다.'],
-      armed: ['첫 클릭 대기', '1번과 2번 위치를 지정하세요', '1번 ⌃⌥S · 2번 ⌃⌥D · 시작 ⌃⌥Space'],
-      running: ['측정 중', '', '1번 → 2번 교대 클릭 · 앱 중지는 ⌃⌥Space'],
+      idle: ['대기 중', '세 지점의 속도를 확인하세요', '‘측정 준비’를 누르면 세 영역이 활성화됩니다.'],
+      armed: ['첫 클릭 대기', '1번·2번·3번 위치를 지정하세요', '1번 ⌃⌥S · 2번 ⌃⌥D · 3번 ⌃⌥F · 시작 ⌃⌥Space'],
+      running: ['측정 중', '', '1번 → 2번 → 3번 교대 클릭 · 앱 중지는 ⌃⌥Space'],
       completed: ['측정 완료', '측정이 끝났어요', '앱이 계속 클릭 중이라면 ⌃⌥Space로 중지하세요.'],
       interrupted: ['측정 중단', '측정을 중단했어요', '앱이 계속 클릭 중이라면 ⌃⌥Space로 중지하세요.'],
     };
@@ -149,7 +149,7 @@ function render() {
   $('peak').textContent = s.peak === null ? '—' : `${number.format(s.peak)} CPS`;
   $('percent').textContent = decimals.format(s.percent);
   $('remaining').textContent = (engine.bins ? s.remaining : duration).toFixed(1);
-  $('goal').textContent = `${number.format(engine.target || Number($('target').value) || 10000)} CPS`;
+  $('goal').textContent = `${number.format(engine.target || Number($('target').value) || 40000)} CPS`;
   const progress = engine.duration ? Math.min(100, s.elapsed / engine.duration * 100) : 0;
   $('progress-fill').style.width = `${progress}%`;
   $('progress').setAttribute('aria-valuenow', String(Math.round(progress)));
@@ -186,14 +186,14 @@ $('arm').addEventListener('click', () => {
   if (!window.PointerEvent) { $('error').textContent = '최신 Safari 또는 Chrome에서 열어주세요.'; return; }
   try {
     const target = Number($('target').value);
-    engine.arm({ duration, target, targetCount: 2, mode: $('click-mode').value });
+    engine.arm({ duration, target, targetCount: points.length, mode: $('click-mode').value });
     gate.reset(); savedResult = null; chartKey = '';
-    $('run-status').textContent = '1번 영역에서 ⌃⌥S, 2번 영역에서 ⌃⌥D로 위치를 지정한 뒤 ⌃⌥Space로 시작하세요. 두 영역은 첫 클릭부터 같은 시간 동안 측정됩니다.';
+    $('run-status').textContent = '1번 영역에서 ⌃⌥S, 2번 영역에서 ⌃⌥D, 3번 영역에서 ⌃⌥F로 위치를 지정한 뒤 ⌃⌥Space로 시작하세요. 세 영역은 첫 클릭부터 같은 시간 동안 측정됩니다.';
     render();
     // Capture after state changes; font loading and scrolling refresh bounds separately.
     refreshBounds();
     sessionSize = { width: window.innerWidth, height: window.innerHeight };
-  } catch (error) { $('error').textContent = '목표 속도에 1–20,000 사이 정수를 입력하세요.'; }
+  } catch (error) { $('error').textContent = '목표 속도에 1–40,000 사이 정수를 입력하세요.'; }
 });
 function stop(reason) {
   if (engine.state !== 'armed' && engine.state !== 'running') return;

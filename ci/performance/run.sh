@@ -46,8 +46,11 @@ p=Path('performance-output')
 r=json.load(open(p/'actual-received.json'))
 assert r['completed'] and r['receivedClicks'] > 0
 assert sum(t['receivedClicks'] for t in r['receivedByTarget']) == r['receivedClicks']
-assert all(t['receivedClicks'] > 0 for t in r['receivedByTarget'])
+assert len(r['receivedByTarget']) == 3 and all(t['receivedClicks'] > 0 for t in r['receivedByTarget'])
+assert r['targetCPS'] == 40000 and r['measuredSeconds'] == 10
+assert r['receivedClicks'] == sum(r['countsPer100ms']) == sum(r['clicksPerSecond'])
+assert r['ignoredSyntheticEvents'] == 0
 videos=list(p.glob('TapBench-*-real-mac-test.mov'))
 assert len(videos)==1 and videos[0].stat().st_size > 10000
-print('Actual input, both targets, complete timing window, and video file verified.')
+print('Actual input, all three targets, complete timing window, and video file verified.')
 PY

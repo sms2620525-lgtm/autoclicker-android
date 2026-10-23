@@ -44,7 +44,7 @@ struct EngineTests {
         engine.tick(generation: secondRun)
         check(engine.snapshot().postedPairs == 2, "legacy mode emits one pair per callback")
         engine.stop()
-        for rate in [0, -1, 20_001, Int.max] {
+        for rate in [0, -1, 40_001, Int.max] {
             check(!engine.start(points: points, cps: rate, seconds: 1), "reject invalid CPS \(rate)")
         }
         check(!engine.start(points: [], cps: 10_000, seconds: 1), "reject missing target")
@@ -63,6 +63,29 @@ struct EngineTests {
         check(sentAt == [999_900_000, 999_950_000], "deadline checked between pairs within a batch")
         check(!deadline.snapshot().active && deadline.snapshot().elapsedSeconds == 1, "deadline stops engine")
         check(deadline.snapshot().postedPairs == 2, "unposted reservations are never counted as clicks")
+
+        var threeClock: UInt64 = 0
+        var threeOrder: [Int] = []
+        let triple = ClickEngine(now: { threeClock }, prepare: { _ in
+            { index, _, _ in threeOrder.append(index) }
+        }, usesTimer: false)
+        let threePoints = points + [CGPoint(x: 30, y: 30)]
+        check(triple.start(points: threePoints, cps: 40_000, seconds: 1), "accept 40,000 total CPS and three points")
+        for time in stride(from: UInt64(0), to: UInt64(1_000_000_000), by: 25_000) {
+            threeClock = time
+            triple.tick(generation: triple.generation)
+        }
+        threeClock = 1_000_000_000
+        triple.tick(generation: triple.generation)
+        let tripleStats = triple.snapshot()
+        check(tripleStats.postedPairs == 40_000 && !tripleStats.active, "one-second 40,000 budget is total, not multiplied by three")
+        check(tripleStats.targets.map { $0.postedPairs } == [13_334, 13_333, 13_333], "three-target totals are balanced to within one pair")
+        check(threeOrder == (0..<40_000).map { $0 % 3 }, "actual emissions rotate through all three points")
+        check(tripleStats.skippedSlots == 0, "ideal 40k clock loses no slots")
+        check(triple.start(points: threePoints, cps: 40_000, seconds: 1), "three-point restart")
+        triple.tick(generation: triple.generation)
+        check(threeOrder.last == 0, "three-point restart begins at first point")
+        triple.stop()
 
         // Real concurrent stop while the output is in flight; no system input is posted.
         let entered = DispatchSemaphore(value: 0)

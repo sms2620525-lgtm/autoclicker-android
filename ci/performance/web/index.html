@@ -18,7 +18,7 @@
   <main class="wrap">
     <section class="intro">
       <div><p class="eyebrow"><span class="status-dot"></span> 실제 입력으로 확인하는 성능</p><h1>클릭 속도를<br class="mobile-break"> 직접 확인하세요<span>.</span></h1><p class="intro-copy">오토클릭커를 켜고 아래 영역을 눌러보세요.<br class="mobile-break"> 이 브라우저에 도착한 클릭만 측정합니다.</p></div>
-      <a class="download-link" href="https://github.com/sms2620525-lgtm/autoclicker-android/releases/tag/macos-7-1" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></svg><span>Mac 앱 다운로드<small>DMG 1.2.0 · Apple Silicon + Intel</small></span><span>↗</span></a>
+      <a class="download-link" href="https://github.com/sms2620525-lgtm/autoclicker-android/releases" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></svg><span>Mac 앱 다운로드<small>DMG 1.3.0 · Apple Silicon + Intel</small></span><span>↗</span></a>
     </section>
 
     <div class="workspace">
@@ -28,15 +28,15 @@
         <fieldset id="settings-fields">
           <legend class="sr-only">측정 설정</legend>
           <label class="field-label" for="target">총 목표 속도 <span>CPS</span></label>
-          <div class="number-field"><input id="target" type="number" value="10000" min="1" max="20000" step="1" inputmode="numeric" aria-describedby="target-note"><span>회/초</span></div>
-          <p id="target-note" class="field-note">상한 20,000 · 두 지점 합계입니다. 총 10,000이면 지점당 목표는 약 5,000 CPS입니다.</p>
+          <div class="number-field"><input id="target" type="number" value="40000" min="1" max="40000" step="1" inputmode="numeric" aria-describedby="target-note"><span>회/초</span></div>
+          <p id="target-note" class="field-note">상한 40,000 · 세 지점 합계입니다. 총 40,000이면 지점당 목표는 약 13,333 CPS입니다.</p>
           <label class="field-label mode-label" for="click-mode">앱에서 선택한 모드</label>
           <select id="click-mode" class="mode-select"><option value="fast">고속</option><option value="steady">기존 방식</option><option value="unspecified">미지정</option></select>
           <p id="mode-note" class="field-note">결과 비교용 기록입니다. 앱에서도 같은 모드를 선택하세요.</p>
           <div class="field-label duration-label" id="duration-label">측정 시간</div>
           <div class="segmented" role="group" aria-labelledby="duration-label"><button type="button" data-duration="5" aria-pressed="false">5초</button><button type="button" data-duration="10" aria-pressed="true" class="selected">10초</button><button type="button" data-duration="30" aria-pressed="false">30초</button><button type="button" data-duration="60" aria-pressed="false">60초</button></div>
         </fieldset>
-        <div class="start-note"><span>↳</span><p>1번에서 ⌃⌥S, 2번에서 ⌃⌥D.<br>각 영역의 중앙을 지정하세요.</p></div>
+        <div class="start-note"><span>↳</span><p>1번 ⌃⌥S · 2번 ⌃⌥D · 3번 ⌃⌥F.<br>각 영역의 중앙을 지정하세요.</p></div>
         <button class="primary-button" id="arm" type="button">측정 준비 <span>→</span></button>
         <button class="stop-button" id="stop" type="button" disabled><span class="stop-icon"></span> 측정 중지 <kbd>Esc</kbd></button>
         <p class="error-message" id="error" role="alert"></p>
@@ -45,9 +45,9 @@
 
       <section class="test-panel panel" aria-labelledby="test-title">
         <div class="panel-heading"><div class="section-label" id="test-title">02 / 클릭 측정 영역</div><span class="state-badge" id="badge"><span></span><span id="badge-text">대기 중</span></span></div>
-        <div class="pad" id="pad" role="group" aria-label="두 지점 클릭 측정 패드. 측정 준비 후 각 영역을 누르세요.">
+        <div class="pad" id="pad" role="group" aria-label="세 지점 클릭 측정 패드. 측정 준비 후 각 영역을 누르세요.">
           <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-          <span class="pad-top">TWO POINTS · REAL INPUT</span>
+          <span class="pad-top">THREE POINTS · REAL INPUT</span>
           <div class="point-grid">
             <div class="click-point" data-point="0" role="group" aria-label="1번 클릭 영역, 위치 지정 Control Option S">
               <span class="point-name">POINT 01</span><svg class="crosshair" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="29"/><circle cx="50" cy="50" r="4"/><path d="M50 2v25m0 46v25M2 50h25m46 0h25"/></svg>
@@ -57,8 +57,12 @@
               <span class="point-name">POINT 02</span><svg class="crosshair" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="29"/><circle cx="50" cy="50" r="4"/><path d="M50 2v25m0 46v25M2 50h25m46 0h25"/></svg>
               <span class="point-count"><b id="point-count-1">0</b> 회</span><span class="point-rate" id="point-rate-1">0.0 CPS</span><span class="point-shortcut">2번 지정 · ⌃⌥D</span>
             </div>
+            <div class="click-point third" data-point="2" role="group" aria-label="3번 클릭 영역, 위치 지정 Control Option F">
+              <span class="point-name">POINT 03</span><svg class="crosshair" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="29"/><circle cx="50" cy="50" r="4"/><path d="M50 2v25m0 46v25M2 50h25m46 0h25"/></svg>
+              <span class="point-count"><b id="point-count-2">0</b> 회</span><span class="point-rate" id="point-rate-2">0.0 CPS</span><span class="point-shortcut">3번 지정 · ⌃⌥F</span>
+            </div>
           </div>
-          <div class="pad-center"><div class="pad-title" id="pad-title">두 지점의 속도를 확인하세요</div><div class="pad-hint" id="pad-hint">‘측정 준비’를 누르면 두 영역이 활성화됩니다.</div></div>
+          <div class="pad-center"><div class="pad-title" id="pad-title">세 지점의 속도를 확인하세요</div><div class="pad-hint" id="pad-hint">‘측정 준비’를 누르면 세 영역이 활성화됩니다.</div></div>
         </div>
         <div class="timing"><span id="timing-text">첫 클릭 대기</span><div class="progress-track" role="progressbar" aria-label="측정 진행" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress"><span id="progress-fill"></span></div><span class="time-left"><b id="remaining">10.0</b><span>초 남음</span></span></div>
         <div class="metrics">
@@ -73,15 +77,15 @@
       <div class="results-heading"><div><div class="section-label">03 / 측정 기록</div><h2 id="result-title">속도의 흐름</h2></div><div class="export-buttons"><button id="export-csv" class="outline-button" type="button" disabled>CSV ↓</button><button id="export-json" class="outline-button" type="button" disabled>JSON ↓</button></div></div>
       <div class="results-grid">
         <div class="chart-wrap"><div class="chart-caption"><span><i></i> 초별 수신 클릭 수</span><span id="chart-caption">측정하면 그래프가 표시됩니다</span></div><svg id="chart" viewBox="0 0 700 180" role="img" aria-label="초별 클릭 측정 기록 없음"><g class="gridlines"><path d="M32 20H690 M32 60H690 M32 100H690 M32 140H690"/></g><g id="chart-labels"></g><g id="chart-bars"></g></svg><div class="chart-axis"><span>0초</span><span id="chart-duration">10초</span></div></div>
-        <div class="comparison"><span class="metric-label">목표 대비 평균 속도</span><div class="percentage"><strong id="percent">0.0</strong><span>%</span></div><div class="goal-track"><span id="goal-fill"></span></div><div class="comparison-row"><span>목표 속도</span><b id="goal">10,000 CPS</b></div><div class="comparison-row"><span>최고 1초 구간</span><b id="peak">—</b></div><p class="field-note">완료된 1초 구간 기준입니다. 그래프의 마지막 부분 구간은 클릭 수로 표시합니다.</p></div>
+        <div class="comparison"><span class="metric-label">목표 대비 평균 속도</span><div class="percentage"><strong id="percent">0.0</strong><span>%</span></div><div class="goal-track"><span id="goal-fill"></span></div><div class="comparison-row"><span>목표 속도</span><b id="goal">40,000 CPS</b></div><div class="comparison-row"><span>최고 1초 구간</span><b id="peak">—</b></div><p class="field-note">완료된 1초 구간 기준입니다. 그래프의 마지막 부분 구간은 클릭 수로 표시합니다.</p></div>
       </div>
       <div class="run-status" id="run-status" role="status" aria-live="polite">측정을 준비하면 이곳에 결과가 남습니다.</div>
     </section>
 
     <section class="history-section" aria-labelledby="history-title"><div class="history-heading"><h2 id="history-title">최근 측정 <span>이 브라우저에만 저장</span></h2><button class="text-button" id="clear-history" type="button" hidden>기록 지우기</button></div><div class="table-scroll"><table><thead><tr><th>측정 시각</th><th>상태</th><th>모드</th><th>시간</th><th>클릭 수</th><th>평균 CPS</th><th>목표 대비</th></tr></thead><tbody id="history-body"><tr><td colspan="7" class="empty-history">아직 측정 기록이 없습니다. 첫 번째 테스트를 시작해보세요.</td></tr></tbody></table></div></section>
 
-    <section id="guide" class="guide"><div class="guide-intro"><p class="eyebrow">QUICK START</p><h2>두 지점을 테스트하는 방법</h2><p>앱에서 ‘2개 교대’와 ‘고속’을 선택하세요.<br>같은 목표 속도로 ‘기존 방식’과 비교하세요.</p></div><ol class="guide-steps"><li><span>1</span><div><h3>앱을 설치하고 권한 허용</h3><p>1.2.0 DMG에서 앱을 Applications로 옮기고, 시스템 설정의 ‘손쉬운 사용’에서 TapBench를 허용하세요.</p></div></li><li><span>2</span><div><h3>웹 측정 준비 → 두 위치 지정</h3><p>‘측정 준비’ 후 1번 영역 중앙에서 <b>⌃⌥S</b>, 2번 영역 중앙에서 <b>⌃⌥D</b>를 누르세요. 두 좌표가 앱에 저장됩니다.</p></div></li><li><span>3</span><div><h3>⌃⌥Space로 시작</h3><p>3초 뒤 교대 클릭합니다. 첫 클릭부터 두 영역을 같은 시간 동안 측정합니다. 앱의 실행 시간은 웹 측정 시간 이상으로 설정하세요. 하나만 측정하려면 앱에서 ‘1개’를 선택하세요.</p></div></li></ol></section>
-    <details class="method"><summary>무엇을 측정하나요? <span>＋</span></summary><div><p>브라우저가 전달한 실제 마우스·터치의 누름 → 놓음 쌍을 한 번으로 셉니다. 웹 스크립트가 만든 합성 이벤트는 제외하며, 호환용 click 이벤트를 중복 계산하지 않습니다. OS 오토클릭커 입력과 손으로 누른 입력은 모두 포함됩니다.</p><p>평균 CPS = 수신 클릭 수 ÷ 측정 시간입니다. 첫 클릭부터 고정 시간 동안 세며, 탭을 숨기거나 창 크기를 바꾸면 중단 기록으로 남깁니다. 최근 1초 속도는 완료된 100ms 구간 10개를 합산합니다.</p><p>측정값은 이 브라우저가 처리한 입력의 속도입니다. 운영체제에 전송한 횟수, 다른 앱에서 처리한 클릭 수와 다를 수 있습니다. 20,000 CPS는 앱의 설정 상한이며 달성을 보장하지 않습니다. 측정 데이터는 서버로 보내지 않습니다.</p></div></details>
+    <section id="guide" class="guide"><div class="guide-intro"><p class="eyebrow">QUICK START</p><h2>세 지점을 테스트하는 방법</h2><p>앱에서 ‘3개 교대’와 ‘고속’을 선택하세요.<br>같은 목표 속도로 ‘기존 방식’과 비교하세요.</p></div><ol class="guide-steps"><li><span>1</span><div><h3>앱을 설치하고 권한 허용</h3><p>1.3.0 DMG에서 앱을 Applications로 옮기고, 시스템 설정의 ‘손쉬운 사용’에서 TapBench를 허용하세요.</p></div></li><li><span>2</span><div><h3>웹 측정 준비 → 세 위치 지정</h3><p>‘측정 준비’ 후 1번 영역 중앙에서 <b>⌃⌥S</b>, 2번은 <b>⌃⌥D</b>, 3번은 <b>⌃⌥F</b>를 누르세요. 세 좌표가 앱에 저장됩니다.</p></div></li><li><span>3</span><div><h3>⌃⌥Space로 시작</h3><p>3초 뒤 교대 클릭합니다. 첫 클릭부터 세 영역을 같은 시간 동안 측정합니다. 앱의 실행 시간은 웹 측정 시간 이상으로 설정하세요. 하나만 측정하려면 앱에서 ‘1개’를 선택하세요.</p></div></li></ol></section>
+    <details class="method"><summary>무엇을 측정하나요? <span>＋</span></summary><div><p>브라우저가 전달한 실제 마우스·터치의 누름 → 놓음 쌍을 한 번으로 셉니다. 웹 스크립트가 만든 합성 이벤트는 제외하며, 호환용 click 이벤트를 중복 계산하지 않습니다. OS 오토클릭커 입력과 손으로 누른 입력은 모두 포함됩니다.</p><p>평균 CPS = 수신 클릭 수 ÷ 측정 시간입니다. 첫 클릭부터 고정 시간 동안 세며, 탭을 숨기거나 창 크기를 바꾸면 중단 기록으로 남깁니다. 최근 1초 속도는 완료된 100ms 구간 10개를 합산합니다.</p><p>측정값은 이 브라우저가 처리한 입력의 속도입니다. 운영체제에 전송한 횟수, 다른 앱에서 처리한 클릭 수와 다를 수 있습니다. 40,000 CPS는 앱의 설정 상한이며 달성을 보장하지 않습니다. 측정 데이터는 서버로 보내지 않습니다.</p></div></details>
   </main>
   <footer class="wrap footer"><span>TapBench<span class="brand-dot">.</span> <span class="muted">더 정확하게, 직접 측정.</span></span><span>Native app · Browser measurement</span></footer>
   <noscript><div class="noscript">측정하려면 브라우저의 JavaScript를 켜주세요.</div></noscript>

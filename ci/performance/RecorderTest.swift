@@ -27,7 +27,7 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
     let probeTap = ProcessInfo.processInfo.environment["TAPBENCH_PROBE_TAP"]
     let requestedCPS = Int(ProcessInfo.processInfo.environment["TAPBENCH_PROBE_CPS"] ?? String(ClickLimits.defaultCPS)) ?? ClickLimits.defaultCPS
     let requestedMode = ClickMode(rawValue: ProcessInfo.processInfo.environment["TAPBENCH_PROBE_MODE"] ?? ClickLimits.defaultMode.rawValue) ?? ClickLimits.defaultMode
-    let appVersion = ProcessInfo.processInfo.environment["TAPBENCH_TEST_VERSION"] ?? "1.2.0"
+    let appVersion = ProcessInfo.processInfo.environment["TAPBENCH_TEST_VERSION"] ?? "1.3.0"
     var probeEngine: ClickEngine?
     var nativeDowns = 0
     var nativeUps = 0
@@ -93,7 +93,7 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
             .point-grid{gap:12px!important}.point-name,.point-shortcut{font-size:11px!important}.metric strong{font-size:26px!important}`;
           document.head.append(style);
           const banner = document.createElement('div');
-          banner.textContent = 'LIVE OS INPUT • TapBench 1.2.0 • FAST • 10,000 CPS goal • GitHub macOS / WebKit';
+          banner.textContent = 'LIVE OS INPUT • TapBench 1.3.0 • FAST • 10,000 CPS goal • GitHub macOS / WebKit';
           banner.style.cssText = 'padding:10px 14px;background:#16372b;color:#b8ffdc;font:13px monospace;text-align:center';
           document.body.prepend(banner);
           try { localStorage.removeItem('tapbench-received-history-v1'); } catch {}
@@ -109,10 +109,10 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
             .replacingOccurrences(of: "value = 'fast'", with: "value = '\(requestedMode.rawValue)'")
             .replacingOccurrences(of: "• FAST •", with: "• \(requestedMode.rawValue.uppercased()) •")
             .replacingOccurrences(of: "10,000 CPS goal", with: "\(requestedCPS) CPS goal")
-            .replacingOccurrences(of: "LIVE OS INPUT • TapBench 1.2.0", with: probeTap.map { "ENGINE DIAGNOSTIC • \($0)" } ?? "LIVE OS INPUT • TapBench \(appVersion)")
+            .replacingOccurrences(of: "LIVE OS INPUT • TapBench 1.3.0", with: probeTap.map { "ENGINE DIAGNOSTIC • \($0)" } ?? "LIVE OS INPUT • TapBench \(appVersion)")
         web.evaluateJavaScript(configuredScript) { [weak self] value, error in
             guard let self = self, !self.done else { return }
-            guard error == nil, let positions = value as? [[String: NSNumber]], positions.count == 2 else {
+            guard error == nil, let positions = value as? [[String: NSNumber]], positions.count == ClickLimits.maxTargets else {
                 self.fail("Page setup failed: \(error?.localizedDescription ?? "missing targets")"); return
             }
             let points = positions.map { self.quartzPoint(x: $0["x"]!.doubleValue, y: $0["y"]!.doubleValue) }
@@ -121,7 +121,8 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
             writeJSON(["points": points.map { ["x": $0.x, "y": $0.y] },
                        "appPID": self.appPID, "release": self.probeTap == nil ? "built-from-workflow-commit" : "CI-engine-diagnostic", "appVersion": self.appVersion,
                        "appCommit": ProcessInfo.processInfo.environment["GITHUB_SHA"] ?? "local",
-                       "webSourceCommit": "3042c733a0e501d0bfd79718fd3eac51a06f5d0b",
+                       "webSourceCommit": ProcessInfo.processInfo.environment["GITHUB_SHA"] ?? "local",
+                       "webSourcePath": "ci/performance/web",
                        "targetCPS": self.requestedCPS, "mode": self.requestedMode.rawValue, "seconds": 10,
                        "note": self.probeTap == nil ? "Production app built and packaged from this workflow commit. JavaScript arms UI only; received pointer pairs originate from macOS input." : "CI-only diagnostic using the production scheduler and real macOS events. Not a released-app benchmark."],
                       to: self.outputDirectory + "/test-configuration.json")
@@ -144,7 +145,9 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { self.hotkey(1) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { self.move(points[1]) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { self.hotkey(2) }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) { self.hotkey(49) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) { self.move(points[2]) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.35) { self.hotkey(3) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.65) { self.hotkey(49) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 30) { self.collectResult() }
         }
     }

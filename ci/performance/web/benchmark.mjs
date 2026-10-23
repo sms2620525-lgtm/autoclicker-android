@@ -1,7 +1,7 @@
 export class Benchmark {
   constructor() { this.state = 'idle'; this.total = 0; this.result = null; }
   arm({ duration, target, targetCount = 1, mode = 'unspecified' }) {
-    if (![5, 10, 30, 60].includes(duration) || !Number.isInteger(target) || target < 1 || target > 20000 || ![1, 2].includes(targetCount) || !['fast', 'steady', 'unspecified'].includes(mode)) throw new Error('설정을 확인하세요.');
+    if (![5, 10, 30, 60].includes(duration) || !Number.isInteger(target) || target < 1 || target > 40000 || ![1, 2, 3].includes(targetCount) || !['fast', 'steady', 'unspecified'].includes(mode)) throw new Error('설정을 확인하세요.');
     this.mode = mode;
     this.duration = duration;
     this.target = target;
@@ -60,7 +60,7 @@ export class Benchmark {
     this.state = reason === 'completed' ? 'completed' : 'interrupted';
     const s = this.snapshot(this.ended);
     this.result = {
-      schema: 'tapbench-web-v3', createdAt: new Date().toISOString(), reason,
+      schema: 'tapbench-web-v4', createdAt: new Date().toISOString(), reason,
       clickMode: this.mode, modeSource: 'User-selected label; not detected from the native app.',
       completed: reason === 'completed', targetCPS: this.target, requestedSeconds: this.duration,
       measuredSeconds: s.elapsed, receivedClicks: s.total, averageCPS: s.average,
