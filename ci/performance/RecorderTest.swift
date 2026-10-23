@@ -127,8 +127,7 @@ final class TestDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
                        "note": self.probeTap == nil ? "Production app built and packaged from this workflow commit. JavaScript arms UI only; received pointer pairs originate from macOS input." : "CI-only diagnostic using the production scheduler and real macOS events. Not a released-app benchmark."],
                       to: self.outputDirectory + "/test-configuration.json")
             if let tapName = self.probeTap {
-                let tap: CGEventTapLocation = tapName == "session" ? .cgSessionEventTap : .cghidEventTap
-                let engine = ClickEngine(prepare: { ProbeOutput.make(points: $0, tap: tap) })
+                let engine = ClickEngine(prepare: { ProbeOutput.make(points: $0, route: tapName, pid: getpid(), windowNumber: self.window.windowNumber) })
                 self.probeEngine = engine
                 guard engine.start(points: points, cps: self.requestedCPS, seconds: 10, mode: self.requestedMode) else { self.fail("Probe engine could not start."); return }
                 DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 11) {

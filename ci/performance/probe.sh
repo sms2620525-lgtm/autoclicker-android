@@ -7,7 +7,9 @@ import json, os, subprocess, time
 from pathlib import Path
 root=Path.cwd()
 summary=[]
-for tap, cps, mode in [('hid',2000,'fast'),('hid',1000,'steady'),('hid',5000,'steady')]:
+cases=[('hid',1000,'fast'),('pid',1000,'fast'),('pidraw',1000,'fast'),
+       ('pid',5000,'fast'),('pid',40000,'fast'),('annotated',40000,'fast')]
+for tap, cps, mode in cases:
     name=f'{tap}-{cps}-{mode}'
     folder=root/'performance-build'/name
     folder.mkdir()

@@ -1,9 +1,9 @@
 import Foundation
 import ApplicationServices
 
-// CI-only comparison. Matches production event construction; varies only the tap.
+// CI-only comparison. All routes use real Quartz events and the same receiver.
 enum ProbeOutput {
-    static func make(points: [CGPoint], tap: CGEventTapLocation) -> ClickEngine.PairOutput? {
+    static func make(points: [CGPoint], route: String, pid: pid_t, windowNumber: Int) -> ClickEngine.PairOutput? {
         guard AXIsProcessTrusted(), let source = CGEventSource(stateID: .privateState) else { return nil }
         source.localEventsSuppressionInterval = 0
         var events: [(CGEvent, CGEvent)] = []
@@ -15,6 +15,11 @@ enum ProbeOutput {
             for event in [down, up] {
                 event.flags = []
                 event.setIntegerValueField(.mouseEventClickState, value: 1)
+                if route == "pid" {
+                    event.setIntegerValueField(.eventTargetUnixProcessID, value: Int64(pid))
+                    event.setIntegerValueField(.mouseEventWindowUnderMousePointer, value: Int64(windowNumber))
+                    event.setIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent, value: Int64(windowNumber))
+                }
             }
             down.setDoubleValueField(.mouseEventPressure, value: 1)
             up.setDoubleValueField(.mouseEventPressure, value: 0)
@@ -22,12 +27,20 @@ enum ProbeOutput {
         }
         return { index, time, number in
             let (down, up) = events[index]
+            func post(_ event: CGEvent) {
+                switch route {
+                case "pid", "pidraw": event.postToPid(pid)
+                case "session": event.post(tap: .cgSessionEventTap)
+                case "annotated": event.post(tap: .cgAnnotatedSessionEventTap)
+                default: event.post(tap: .cghidEventTap)
+                }
+            }
             down.timestamp = time
             down.setIntegerValueField(.mouseEventNumber, value: number)
-            down.post(tap: tap)
+            post(down)
             up.timestamp = DispatchTime.now().uptimeNanoseconds
             up.setIntegerValueField(.mouseEventNumber, value: number)
-            up.post(tap: tap)
+            post(up)
         }
     }
 }
